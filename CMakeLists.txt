@@ -6,28 +6,57 @@ set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Find required frameworks
-find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
-find_library(AVFOUNDATION_FRAMEWORK AVFoundation)
-find_library(APPKIT_FRAMEWORK AppKit)
-find_library(COREFOUNDATION_FRAMEWORK CoreFoundation)
-find_library(ACCELERATE_FRAMEWORK Accelerate)
-find_library(FOUNDATION_FRAMEWORK Foundation)
-
-if(NOT APPLICATION_SERVICES_FRAMEWORK)
-    message(FATAL_ERROR "ApplicationServices framework not found")
+# Platform-specific settings
+if(APPLE)
+    # Find required frameworks for macOS
+    find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
+    find_library(APPKIT_FRAMEWORK AppKit)
+    find_library(COREFOUNDATION_FRAMEWORK CoreFoundation)
+    find_library(COREAUDIO_FRAMEWORK CoreAudio)
+    find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox)
+    find_library(AVFOUNDATION_FRAMEWORK AVFoundation)
+    find_library(ACCELERATE_FRAMEWORK Accelerate)
+    find_library(FOUNDATION_FRAMEWORK Foundation)
+elseif(WIN32)
+    # Windows libraries for miniaudio
+    set(PLATFORM_LIBS winmm ole32)
+elseif(UNIX)
+    # Linux libraries for miniaudio
+    find_package(Threads REQUIRED)
+    set(PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} dl m)
+    
+    # Check for ALSA
+    find_package(ALSA)
+    if(ALSA_FOUND)
+        list(APPEND PLATFORM_LIBS ${ALSA_LIBRARIES})
+    endif()
+    
+    # Check for PulseAudio
+    find_package(PkgConfig)
+    if(PKG_CONFIG_FOUND)
+        pkg_check_modules(PULSEAUDIO libpulse)
+        if(PULSEAUDIO_FOUND)
+            list(APPEND PLATFORM_LIBS ${PULSEAUDIO_LIBRARIES})
+        endif()
+    endif()
 endif()
 
-if(NOT AVFOUNDATION_FRAMEWORK)
-    message(FATAL_ERROR "AVFoundation framework not found")
-endif()
+if(APPLE)
+    if(NOT APPLICATION_SERVICES_FRAMEWORK)
+        message(FATAL_ERROR "ApplicationServices framework not found")
+    endif()
 
-if(NOT APPKIT_FRAMEWORK)
-    message(FATAL_ERROR "AppKit framework not found")
-endif()
+    if(NOT APPKIT_FRAMEWORK)
+        message(FATAL_ERROR "AppKit framework not found")
+    endif()
 
-if(NOT COREFOUNDATION_FRAMEWORK)
-    message(FATAL_ERROR "CoreFoundation framework not found")
+    if(NOT COREFOUNDATION_FRAMEWORK)
+        message(FATAL_ERROR "CoreFoundation framework not found")
+    endif()
+    
+    if(NOT COREAUDIO_FRAMEWORK)
+        message(FATAL_ERROR "CoreAudio framework not found")
+    endif()
 endif()
 
 # Check if whisper.cpp exists
@@ -42,11 +71,17 @@ else()
     set(WHISPER_AVAILABLE FALSE)
 endif()
 
+# Common audio sources
+set(AUDIO_SOURCES src/audio_miniaudio.c)
+if(APPLE)
+    list(APPEND AUDIO_SOURCES src/audio_permissions_macos.m)
+endif()
+
 # Source files for whisperer CLI
 set(WHISPERER_SOURCES
     src/main.m
     src/keylogger.c
-    src/audio.m
+    ${AUDIO_SOURCES}
     src/overlay.m
 )
 
@@ -57,7 +92,7 @@ list(APPEND WHISPERER_SOURCES src/transcription.cpp)
 set(WHISPERER_APP_SOURCES
     src/main_app.m
     src/keylogger.c
-    src/audio.m
+    ${AUDIO_SOURCES}
     src/overlay.m
     src/menubar.m
 )
@@ -68,7 +103,7 @@ list(APPEND WHISPERER_APP_SOURCES src/transcription.cpp)
 # Source files for recorder
 set(RECORDER_SOURCES
     src/recorder.c
-    src/audio.m
+    ${AUDIO_SOURCES}
 )
 
 # Create the whisperer CLI executable
@@ -89,21 +124,33 @@ if(WHISPER_AVAILABLE)
 endif()
 
 # Link frameworks for whisperer CLI
-target_link_libraries(whisperer
-    ${APPLICATION_SERVICES_FRAMEWORK}
-    ${AVFOUNDATION_FRAMEWORK}
-    ${APPKIT_FRAMEWORK}
-    ${COREFOUNDATION_FRAMEWORK}
-)
+if(APPLE)
+    target_link_libraries(whisperer
+        ${APPLICATION_SERVICES_FRAMEWORK}
+        ${APPKIT_FRAMEWORK}
+        ${COREFOUNDATION_FRAMEWORK}
+        ${COREAUDIO_FRAMEWORK}
+        ${AUDIOTOOLBOX_FRAMEWORK}
+        ${AVFOUNDATION_FRAMEWORK}
+    )
+else()
+    target_link_libraries(whisperer ${PLATFORM_LIBS})
+endif()
 
 # Link frameworks for whisperer app
-target_link_libraries(whisperer-app
-    ${APPLICATION_SERVICES_FRAMEWORK}
-    ${AVFOUNDATION_FRAMEWORK}
-    ${APPKIT_FRAMEWORK}
-    ${COREFOUNDATION_FRAMEWORK}
-    ${FOUNDATION_FRAMEWORK}
-)
+if(APPLE)
+    target_link_libraries(whisperer-app
+        ${APPLICATION_SERVICES_FRAMEWORK}
+        ${APPKIT_FRAMEWORK}
+        ${COREFOUNDATION_FRAMEWORK}
+        ${FOUNDATION_FRAMEWORK}
+        ${COREAUDIO_FRAMEWORK}
+        ${AUDIOTOOLBOX_FRAMEWORK}
+        ${AVFOUNDATION_FRAMEWORK}
+    )
+else()
+    target_link_libraries(whisperer-app ${PLATFORM_LIBS})
+endif()
 
 # Link whisper.cpp - required for app to work
 if(NOT WHISPER_AVAILABLE)
@@ -139,11 +186,17 @@ if(METAL_FRAMEWORK AND METALKIT_FRAMEWORK AND METALPERFORMANCE_FRAMEWORK)
 endif()
 
 # Link frameworks for recorder
-target_link_libraries(recorder
-    ${AVFOUNDATION_FRAMEWORK}
-    ${APPKIT_FRAMEWORK}
-    ${COREFOUNDATION_FRAMEWORK}
-)
+if(APPLE)
+    target_link_libraries(recorder
+        ${APPKIT_FRAMEWORK}
+        ${COREFOUNDATION_FRAMEWORK}
+        ${COREAUDIO_FRAMEWORK}
+        ${AUDIOTOOLBOX_FRAMEWORK}
+        ${AVFOUNDATION_FRAMEWORK}
+    )
+else()
+    target_link_libraries(recorder ${PLATFORM_LIBS})
+endif()
 
 # Link frameworks for test_transcription
 target_link_libraries(test_transcription
