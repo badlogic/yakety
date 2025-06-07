@@ -7,6 +7,7 @@ static NSStatusItem* statusItem = nil;
 @interface MenuBarDelegate : NSObject
 - (void)quit:(id)sender;
 - (void)about:(id)sender;
+- (void)showLicenses:(id)sender;
 @end
 
 @implementation MenuBarDelegate
@@ -21,6 +22,37 @@ static NSStatusItem* statusItem = nil;
     [alert setMessageText:@"Yakety"];
     [alert setInformativeText:@"Voice transcription for macOS\n\nHold FN key to record and transcribe speech."];
     [alert addButtonWithTitle:@"OK"];
+    [alert runModal];
+}
+
+- (void)showLicenses:(id)sender {
+    NSString* licenseText = @"Third-Party Licenses\n\n"
+        @"miniaudio v0.11.22\n"
+        @"Copyright 2025 David Reid\n"
+        @"License: Public Domain (Unlicense) or MIT-0\n"
+        @"https://github.com/mackron/miniaudio\n\n"
+        @"whisper.cpp\n"
+        @"Copyright 2023-2024 The ggml authors\n"
+        @"License: MIT License\n"
+        @"https://github.com/ggerganov/whisper.cpp\n\n"
+        @"Whisper Model (base.en)\n"
+        @"Copyright OpenAI\n"
+        @"License: MIT License\n"
+        @"https://github.com/openai/whisper\n\n"
+        @"For full license texts, see LICENSES.md in the source repository.";
+    
+    NSAlert* alert = [[NSAlert alloc] init];
+    [alert setMessageText:@"Open Source Licenses"];
+    [alert setInformativeText:licenseText];
+    [alert addButtonWithTitle:@"OK"];
+    [alert setAlertStyle:NSInformationalAlertStyle];
+    
+    // Make the window wider to better display license info
+    NSWindow* window = alert.window;
+    NSRect frame = window.frame;
+    frame.size.width = 600;
+    [window setFrame:frame display:YES];
+    
     [alert runModal];
 }
 
@@ -68,6 +100,12 @@ void menubar_init(void) {
                                                    keyEquivalent:@""];
         [aboutItem setTarget:menuDelegate];
         [menu addItem:aboutItem];
+        
+        NSMenuItem* licensesItem = [[NSMenuItem alloc] initWithTitle:@"Open Source Licenses" 
+                                                             action:@selector(showLicenses:) 
+                                                      keyEquivalent:@""];
+        [licensesItem setTarget:menuDelegate];
+        [menu addItem:licensesItem];
         
         [menu addItem:[NSMenuItem separatorItem]];
         

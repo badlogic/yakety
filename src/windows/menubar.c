@@ -4,7 +4,8 @@
 
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_ABOUT 1001
-#define ID_TRAY_QUIT 1002
+#define ID_TRAY_LICENSES 1002
+#define ID_TRAY_QUIT 1003
 
 static HWND g_hidden_window = NULL;
 static NOTIFYICONDATAW g_tray_icon = {0};
@@ -34,6 +35,26 @@ LRESULT CALLBACK tray_window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
                     MessageBoxW(hwnd, 
                               L"Yakety\n\nHold Right Ctrl to record and transcribe speech.\n\nCross-platform speech-to-text using Whisper.", 
                               L"About Yakety", 
+                              MB_OK | MB_ICONINFORMATION);
+                    break;
+                    
+                case ID_TRAY_LICENSES:
+                    MessageBoxW(hwnd, 
+                              L"Third-Party Licenses\n\n"
+                              L"miniaudio v0.11.22\n"
+                              L"Copyright 2025 David Reid\n"
+                              L"License: Public Domain (Unlicense) or MIT-0\n"
+                              L"https://github.com/mackron/miniaudio\n\n"
+                              L"whisper.cpp\n"
+                              L"Copyright 2023-2024 The ggml authors\n"
+                              L"License: MIT License\n"
+                              L"https://github.com/ggerganov/whisper.cpp\n\n"
+                              L"Whisper Model (base.en)\n"
+                              L"Copyright OpenAI\n"
+                              L"License: MIT License\n"
+                              L"https://github.com/openai/whisper\n\n"
+                              L"For full license texts, see LICENSES.md in the source repository.", 
+                              L"Open Source Licenses", 
                               MB_OK | MB_ICONINFORMATION);
                     break;
                     
@@ -87,6 +108,7 @@ int menubar_init(void) {
     // Create tray menu
     g_tray_menu = CreatePopupMenu();
     AppendMenuW(g_tray_menu, MF_STRING, ID_TRAY_ABOUT, L"About Yakety");
+    AppendMenuW(g_tray_menu, MF_STRING, ID_TRAY_LICENSES, L"Open Source Licenses");
     AppendMenuW(g_tray_menu, MF_SEPARATOR, 0, NULL);
     AppendMenuW(g_tray_menu, MF_STRING, ID_TRAY_QUIT, L"Quit Yakety");
     
