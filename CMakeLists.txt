@@ -18,8 +18,8 @@ if(APPLE)
     find_library(ACCELERATE_FRAMEWORK Accelerate)
     find_library(FOUNDATION_FRAMEWORK Foundation)
 elseif(WIN32)
-    # Windows libraries for miniaudio
-    set(PLATFORM_LIBS winmm ole32)
+    # Windows libraries for miniaudio and system features
+    set(PLATFORM_LIBS winmm ole32 user32 shell32 gdi32)
 elseif(UNIX)
     # Linux libraries for miniaudio
     find_package(Threads REQUIRED)
@@ -75,27 +75,50 @@ endif()
 set(AUDIO_SOURCES src/audio_miniaudio.c)
 if(APPLE)
     list(APPEND AUDIO_SOURCES src/audio_permissions_macos.m)
+elseif(WIN32)
+    # Windows doesn't need special audio permissions
 endif()
 
 # Source files for whisperer CLI
-set(WHISPERER_SOURCES
-    src/main.m
-    src/keylogger.c
-    ${AUDIO_SOURCES}
-    src/overlay.m
-)
+if(APPLE)
+    set(WHISPERER_SOURCES
+        src/main.m
+        src/keylogger.c
+        ${AUDIO_SOURCES}
+        src/overlay.m
+    )
+elseif(WIN32)
+    set(WHISPERER_SOURCES
+        src/main_windows.c
+        src/keylogger_windows.c
+        ${AUDIO_SOURCES}
+        src/overlay_windows.c
+        src/clipboard_windows.c
+    )
+endif()
 
 # Add transcription sources
 list(APPEND WHISPERER_SOURCES src/transcription.cpp)
 
 # Source files for whisperer app
-set(WHISPERER_APP_SOURCES
-    src/main_app.m
-    src/keylogger.c
-    ${AUDIO_SOURCES}
-    src/overlay.m
-    src/menubar.m
-)
+if(APPLE)
+    set(WHISPERER_APP_SOURCES
+        src/main_app.m
+        src/keylogger.c
+        ${AUDIO_SOURCES}
+        src/overlay.m
+        src/menubar.m
+    )
+elseif(WIN32)
+    set(WHISPERER_APP_SOURCES
+        src/main_app_windows.c
+        src/keylogger_windows.c
+        ${AUDIO_SOURCES}
+        src/overlay_windows.c
+        src/clipboard_windows.c
+        src/menubar_windows.c
+    )
+endif()
 
 # Add transcription sources
 list(APPEND WHISPERER_APP_SOURCES src/transcription.cpp)
@@ -110,7 +133,12 @@ set(RECORDER_SOURCES
 add_executable(whisperer ${WHISPERER_SOURCES})
 
 # Create the whisperer app executable
-add_executable(whisperer-app ${WHISPERER_APP_SOURCES})
+if(WIN32)
+    # Windows GUI app (no console window)
+    add_executable(whisperer-app WIN32 ${WHISPERER_APP_SOURCES})
+else()
+    add_executable(whisperer-app ${WHISPERER_APP_SOURCES})
+endif()
 
 # Create the recorder executable
 add_executable(recorder ${RECORDER_SOURCES})

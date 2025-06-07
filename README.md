@@ -1,9 +1,14 @@
-# Whisperer - FN Key Audio Transcription
+# Whisperer - Audio Transcription Hotkey
 
-Cross-platform app: Hold FN key → record audio → transcribe with local Whisper → paste text
+Cross-platform app: Hold hotkey → record audio → transcribe with local Whisper → paste text
+
+- **macOS**: Hold FN key
+- **Windows**: Hold Right Ctrl key
+- **Linux**: Hold Right Ctrl key (planned)
 
 ## Quick Start
 
+### macOS
 ```bash
 # Build both applications
 ./build.sh
@@ -15,6 +20,18 @@ Cross-platform app: Hold FN key → record audio → transcribe with local Whisp
 ./build/recorder output.wav
 ```
 
+### Windows
+```batch
+# Build both applications (run as administrator)
+build.bat
+
+# Start Right Ctrl transcription (requires admin privileges)
+build\Release\whisperer.exe
+
+# Record audio to file
+build\Release\recorder.exe output.wav
+```
+
 ## Applications
 
 ### 🎤 Whisperer (`./build/whisperer`)
@@ -23,17 +40,21 @@ Main application that listens for FN key press/release to record and transcribe 
 
 **Features:**
 
-- Detects FN key press/release events
-- Records audio while FN key is held
+- Detects hotkey press/release events (FN on macOS, Right Ctrl on Windows)
+- Records audio while hotkey is held
 - Will transcribe with whisper.cpp (Phase 3)
 - Will paste transcribed text (Phase 6)
 
 **Usage:**
 
 ```bash
+# macOS
 ./build/whisperer
 # Press and hold FN key to record
-# Release FN key to stop and process
+
+# Windows (run as administrator)
+build\Release\whisperer.exe
+# Press and hold Right Ctrl key to record
 ```
 
 ### 🎵 Recorder (`./build/recorder`)
@@ -72,13 +93,21 @@ Standalone audio recording utility with flexible configuration.
 - **Cross-platform audio**: miniaudio library for Windows/Linux/macOS support
 
 ```bash
-# Clean rebuild
+# macOS - Clean rebuild
 rm -rf build && ./build.sh
 
-# Manual build
+# Windows - Clean rebuild (run as administrator)
+rmdir /s /q build && build.bat
+
+# Manual build (macOS)
 mkdir -p build && cd build
 cmake -G Ninja ..
 ninja
+
+# Manual build (Windows)
+mkdir build && cd build
+cmake ..
+cmake --build . --config Release
 ```
 
 ## Audio Recording Module
@@ -118,15 +147,23 @@ audio_recorder_destroy(recorder);
 
 ### Permissions
 
+#### macOS
 **Accessibility Permission** (for whisperer):
-
 - System Preferences → Security & Privacy → Privacy → Accessibility
 - Add your Terminal application
 
 **Microphone Permission** (for recorder):
-
 - Automatically requested on first run
 - System Preferences → Security & Privacy → Privacy → Microphone
+
+#### Windows
+**Administrator Privileges** (for whisperer):
+- Right-click executable → Run as administrator
+- Required for keyboard monitoring (SetWindowsHookEx)
+
+**Microphone Permission**:
+- No explicit permission needed on Windows
+- Check Windows Settings → Privacy → Microphone if issues occur
 
 ## Project Status
 
