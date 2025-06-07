@@ -1,6 +1,9 @@
 #include <windows.h>
 
-// Icon resource
+// Icon resource - ID 1 is what menubar.c expects
+1 ICON "../../assets/yakety.ico"
+
+// Also define a named resource for clarity
 IDI_YAKETY_ICON ICON "../../assets/yakety.ico"
 
 // Version information

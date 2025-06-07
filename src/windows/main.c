@@ -77,8 +77,8 @@ void process_recording() {
 }
 
 int main(int argc, char* argv[]) {
-    printf("Yakety - Hold Right Ctrl key to record and transcribe speech\n");
-    printf("Note: Using Right Ctrl instead of FN key on Windows\n");
+    printf("Yakety - Hold Left Ctrl key to record and transcribe speech\n");
+    printf("Note: Using Left Ctrl instead of FN key on Windows\n");
     
     // Set up console control handler
     SetConsoleCtrlHandler(console_handler, TRUE);
@@ -116,7 +116,7 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     
-    printf("Ready! Hold Right Ctrl to record.\n");
+    printf("Ready! Hold Left Ctrl to record.\n");
     
     bool was_recording = false;
     

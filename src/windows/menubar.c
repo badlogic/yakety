@@ -33,7 +33,7 @@ LRESULT CALLBACK tray_window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lPa
             switch (LOWORD(wParam)) {
                 case ID_TRAY_ABOUT:
                     MessageBoxW(hwnd, 
-                              L"Yakety\n\nHold Right Ctrl to record and transcribe speech.\n\nCross-platform speech-to-text using Whisper.", 
+                              L"Yakety\n\nHold Left Ctrl to record and transcribe speech.\n\nCross-platform speech-to-text using Whisper.", 
                               L"About Yakety", 
                               MB_OK | MB_ICONINFORMATION);
                     break;
@@ -128,7 +128,7 @@ int menubar_init(void) {
         g_tray_icon.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     }
     
-    wcscpy_s(g_tray_icon.szTip, 128, L"Yakety - Right Ctrl to record");
+    wcscpy_s(g_tray_icon.szTip, 128, L"Yakety - Left Ctrl to record");
     
     // Add to system tray
     if (!Shell_NotifyIconW(NIM_ADD, &g_tray_icon)) {

@@ -4,19 +4,19 @@
 
 // Global variables
 static HHOOK g_keyboard_hook = NULL;
-static bool g_right_ctrl_pressed = false;
+static bool g_left_ctrl_pressed = false;
 
 // Low-level keyboard hook procedure
 LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
     if (nCode >= 0) {
         KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
         
-        // Check for Right Ctrl key (VK_RCONTROL)
-        if (kbdStruct->vkCode == VK_RCONTROL) {
+        // Check for Left Ctrl key (VK_LCONTROL)
+        if (kbdStruct->vkCode == VK_LCONTROL) {
             if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-                g_right_ctrl_pressed = true;
+                g_left_ctrl_pressed = true;
             } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
-                g_right_ctrl_pressed = false;
+                g_left_ctrl_pressed = false;
             }
         }
     }
@@ -46,5 +46,5 @@ void keylogger_cleanup(void) {
 }
 
 bool keylogger_is_fn_pressed(void) {
-    return g_right_ctrl_pressed;
+    return g_left_ctrl_pressed;
 }

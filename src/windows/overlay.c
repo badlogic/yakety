@@ -11,7 +11,7 @@ static HWND g_overlay_window = NULL;
 static HINSTANCE g_instance = NULL;
 static wchar_t g_display_text[256] = L"";
 static COLORREF g_text_color = RGB(255, 255, 255);
-static COLORREF g_bg_color = RGB(0, 0, 0);
+static COLORREF g_bg_color = RGB(0, 0, 0);  // Pure black like macOS
 
 // Window procedure for the overlay
 LRESULT CALLBACK overlay_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -20,8 +20,8 @@ LRESULT CALLBACK overlay_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
             
-            // Create rounded rectangle region
-            HRGN hRgn = CreateRoundRectRgn(0, 0, OVERLAY_WIDTH, OVERLAY_HEIGHT, 20, 20);
+            // Create rounded rectangle region (12px radius like macOS)
+            HRGN hRgn = CreateRoundRectRgn(0, 0, OVERLAY_WIDTH, OVERLAY_HEIGHT, 12, 12);
             SetWindowRgn(hwnd, hRgn, TRUE);
             
             // Fill background
@@ -70,7 +70,7 @@ static void create_overlay_window() {
     wc.lpfnWndProc = overlay_proc;
     wc.hInstance = g_instance;
     wc.hCursor = LoadCursor(NULL, IDC_ARROW);
-    wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+    wc.hbrBackground = NULL;  // No background brush to avoid white borders
     wc.lpszClassName = OVERLAY_CLASS_NAME;
     
     RegisterClassExW(&wc);
@@ -81,9 +81,9 @@ static void create_overlay_window() {
     
     // Calculate position (bottom center, like macOS)
     int x = (screenWidth - OVERLAY_WIDTH) / 2;
-    int y = 30;  // 30 pixels from bottom
+    int y = screenHeight - OVERLAY_HEIGHT - 30;  // 30 pixels from bottom
     
-    // Create window
+    // Create window (WS_POPUP with no borders, like macOS)
     g_overlay_window = CreateWindowExW(
         WS_EX_TOPMOST | WS_EX_LAYERED | WS_EX_TOOLWINDOW | WS_EX_NOACTIVATE,
         OVERLAY_CLASS_NAME,
@@ -94,8 +94,8 @@ static void create_overlay_window() {
     );
     
     if (g_overlay_window) {
-        // Set transparency
-        SetLayeredWindowAttributes(g_overlay_window, 0, 220, LWA_ALPHA);
+        // Set transparency to match macOS (75% opacity = 192/255)
+        SetLayeredWindowAttributes(g_overlay_window, 0, 192, LWA_ALPHA);
     }
 }
 
@@ -119,7 +119,7 @@ void overlay_show(const char* text) {
     MultiByteToWideChar(CP_UTF8, 0, text, -1, wtext, 256);
     
     wcscpy_s(g_display_text, 256, wtext);
-    g_bg_color = RGB(40, 40, 40);
+    g_bg_color = RGB(0, 0, 0);  // Pure black like macOS
     g_text_color = RGB(255, 255, 255);
     
     InvalidateRect(g_overlay_window, NULL, TRUE);
