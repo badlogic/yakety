@@ -274,12 +274,25 @@ void signal_handler(int sig) {
     dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
         NSLog(@"Starting background initialization...");
         
-        // Check audio permissions status (don't request yet - let miniaudio do it)
+        // Handle audio permissions properly
         if (@available(macOS 10.14, *)) {
             AVAuthorizationStatus status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
             
+            if (status == AVAuthorizationStatusNotDetermined) {
+                // Request permission once before miniaudio tries
+                dispatch_semaphore_t semaphore = dispatch_semaphore_create(0);
+                [AVCaptureDevice requestAccessForMediaType:AVMediaTypeAudio 
+                                         completionHandler:^(BOOL granted) {
+                    dispatch_semaphore_signal(semaphore);
+                }];
+                dispatch_semaphore_wait(semaphore, DISPATCH_TIME_FOREVER);
+                
+                // Check status again
+                status = [AVCaptureDevice authorizationStatusForMediaType:AVMediaTypeAudio];
+            }
+            
             if (status == AVAuthorizationStatusDenied || status == AVAuthorizationStatusRestricted) {
-                // Permission already denied - show alert
+                // Permission denied - show alert
                 dispatch_async(dispatch_get_main_queue(), ^{
                     NSAlert* alert = [[NSAlert alloc] init];
                     [alert setMessageText:@"Microphone Permission Required"];
@@ -399,39 +412,58 @@ void signal_handler(int sig) {
         }
         
         // Start the keylogger
-        bool accessibility_retry = true;
-        while (accessibility_retry && start_keylogger() != 0) {
-            __block bool should_retry = false;
-            dispatch_sync(dispatch_get_main_queue(), ^{
+        if (start_keylogger() != 0) {
+            dispatch_async(dispatch_get_main_queue(), ^{
+                // Create a timer to periodically check for accessibility permission
+                __block NSTimer* checkTimer = nil;
+                
+                void (^checkAccessibility)(void) = ^{
+                    // Try to start keylogger again
+                    dispatch_async(dispatch_get_global_queue(DISPATCH_QUEUE_PRIORITY_DEFAULT, 0), ^{
+                        if (start_keylogger() == 0) {
+                            // Success! Stop the timer and continue
+                            dispatch_async(dispatch_get_main_queue(), ^{
+                                if (checkTimer) {
+                                    [checkTimer invalidate];
+                                    checkTimer = nil;
+                                }
+                                
+                                // Continue with initialization
+                                NSLog(@"Yakety Ready - Hold FN key to record and transcribe speech.");
+                            });
+                        }
+                    });
+                };
+                
                 NSAlert* alert = [[NSAlert alloc] init];
                 [alert setMessageText:@"Accessibility Permission Required"];
-                [alert setInformativeText:@"Yakety needs accessibility permission to monitor the FN key.\n\n1. Click 'Open System Preferences'\n2. Add Yakety to the list and check the box\n3. Click 'I've Granted Permission' to continue"];
+                [alert setInformativeText:@"Yakety needs accessibility permission to monitor the FN key.\n\n1. Click 'Open System Preferences'\n2. Add Yakety to the list and check the box\n3. Permission will be detected automatically"];
                 [alert addButtonWithTitle:@"Open System Preferences"];
-                [alert addButtonWithTitle:@"I've Granted Permission"];
-                [alert addButtonWithTitle:@"Cancel"];
+                [alert addButtonWithTitle:@"Quit"];
+                
+                // Start checking for permission every second
+                checkTimer = [NSTimer scheduledTimerWithTimeInterval:1.0
+                                                             repeats:YES
+                                                               block:^(NSTimer * _Nonnull timer) {
+                    checkAccessibility();
+                }];
                 
                 NSModalResponse response = [alert runModal];
+                
+                // Stop the timer
+                if (checkTimer) {
+                    [checkTimer invalidate];
+                    checkTimer = nil;
+                }
+                
                 if (response == NSAlertFirstButtonReturn) {
                     // Open System Preferences to Accessibility
                     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
-                    should_retry = true;
-                } else if (response == NSAlertSecondButtonReturn) {
-                    // User says they've granted permission - retry
-                    should_retry = true;
-                } else {
-                    // Cancel - quit the app
-                    should_retry = false;
-                    [NSApp terminate:nil];
                 }
+                
+                [NSApp terminate:nil];
             });
-            
-            if (!should_retry) {
-                accessibility_retry = false;
-                return;
-            }
-            
-            // Small delay before retrying
-            usleep(500000); // 500ms
+            return;
         }
         
         // Show notification that we're ready (removed deprecated API)
