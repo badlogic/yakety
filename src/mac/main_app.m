@@ -399,22 +399,39 @@ void signal_handler(int sig) {
         }
         
         // Start the keylogger
-        if (start_keylogger() != 0) {
-            dispatch_async(dispatch_get_main_queue(), ^{
+        bool accessibility_retry = true;
+        while (accessibility_retry && start_keylogger() != 0) {
+            __block bool should_retry = false;
+            dispatch_sync(dispatch_get_main_queue(), ^{
                 NSAlert* alert = [[NSAlert alloc] init];
                 [alert setMessageText:@"Accessibility Permission Required"];
-                [alert setInformativeText:@"Please grant accessibility permission in System Preferences → Security & Privacy → Privacy → Accessibility.\n\nAfter granting permission, please restart Yakety."];
+                [alert setInformativeText:@"Yakety needs accessibility permission to monitor the FN key.\n\n1. Click 'Open System Preferences'\n2. Add Yakety to the list and check the box\n3. Click 'I've Granted Permission' to continue"];
                 [alert addButtonWithTitle:@"Open System Preferences"];
-                [alert addButtonWithTitle:@"Quit"];
+                [alert addButtonWithTitle:@"I've Granted Permission"];
+                [alert addButtonWithTitle:@"Cancel"];
                 
                 NSModalResponse response = [alert runModal];
                 if (response == NSAlertFirstButtonReturn) {
                     // Open System Preferences to Accessibility
                     [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
+                    should_retry = true;
+                } else if (response == NSAlertSecondButtonReturn) {
+                    // User says they've granted permission - retry
+                    should_retry = true;
+                } else {
+                    // Cancel - quit the app
+                    should_retry = false;
+                    [NSApp terminate:nil];
                 }
-                [NSApp terminate:nil];
             });
-            return;
+            
+            if (!should_retry) {
+                accessibility_retry = false;
+                return;
+            }
+            
+            // Small delay before retrying
+            usleep(500000); // 500ms
         }
         
         // Show notification that we're ready (removed deprecated API)
