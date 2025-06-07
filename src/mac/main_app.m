@@ -131,8 +131,12 @@ void fn_key_released() {
                     // Hide overlay before pasting
                     overlay_hide();
                     
+                    // Add a space after the transcription for natural typing flow
+                    char with_space[1025];
+                    snprintf(with_space, sizeof(with_space), "%s ", start);
+                    
                     // Copy to clipboard and paste
-                    copy_to_clipboard(start);
+                    copy_to_clipboard(with_space);
                     
                     // Small delay then paste
                     usleep(100000); // 100ms

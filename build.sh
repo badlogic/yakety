@@ -72,35 +72,11 @@ echo "✅ Build complete!"
 # Go back to project root
 cd ..
 
-# Bundle dynamic libraries for distribution
-if [ -d "./build/yakety-app.app" ]; then
-    echo "📦 Bundling dynamic libraries..."
-    mkdir -p "./build/yakety-app.app/Contents/Frameworks"
-    
-    # Copy all dynamic libraries
-    find ./whisper.cpp/build -name "*.dylib" -type f | while read lib; do
-        cp "$lib" "./build/yakety-app.app/Contents/Frameworks/"
-    done
-    
-    # Create symlinks for versioned libraries
-    cd "./build/yakety-app.app/Contents/Frameworks"
-    if [ -f "libwhisper.1.7.5.dylib" ]; then
-        ln -sf libwhisper.1.7.5.dylib libwhisper.1.dylib
-        ln -sf libwhisper.1.7.5.dylib libwhisper.dylib
-    fi
-    cd - > /dev/null
-    
-    # Add rpath to find libraries
-    install_name_tool -add_rpath @executable_path/../Frameworks "./build/yakety-app.app/Contents/MacOS/yakety-app" 2>/dev/null || true
-    
-    echo "✅ Libraries bundled"
-fi
-
 # Sign the app bundle to avoid "damaged" error
-if [ -d "./build/yakety-app.app" ]; then
+if [ -d "./build/bin/yakety-app.app" ]; then
     echo "🔏 Signing app bundle..."
-    codesign --force --deep --sign - "./build/yakety-app.app"
-    xattr -cr "./build/yakety-app.app"
+    codesign --force --deep --sign - "./build/bin/yakety-app.app"
+    xattr -cr "./build/bin/yakety-app.app"
     echo "✅ App signed with ad-hoc signature"
 else
     echo "⚠️  No app bundle found to sign"
@@ -108,16 +84,16 @@ fi
 
 echo ""
 echo "Binaries:"
-echo "  ./build/yakety             - CLI version (no tray icon)"
-echo "  ./build/yakety-app.app     - macOS app bundle (with tray icon)"
-echo "  ./build/recorder           - Audio recording utility"
-echo "  ./build/test_transcription - Test whisper.cpp transcription"
+echo "  ./build/bin/yakety             - CLI version (no tray icon)"
+echo "  ./build/bin/yakety-app.app     - macOS app bundle (with tray icon)"
+echo "  ./build/bin/recorder           - Audio recording utility"
+echo "  ./build/bin/test_transcription - Test whisper.cpp transcription"
 echo ""
 echo "To run:"
-echo "  ./build/yakety                           # CLI version - runs in terminal"
-echo "  open ./build/yakety-app.app              # App version - runs with tray icon"
-echo "  ./build/recorder output.wav              # Record audio to file"
-echo "  ./build/test_transcription test/test1.wav # Test transcription"
+echo "  ./build/bin/yakety                           # CLI version - runs in terminal"
+echo "  open ./build/bin/yakety-app.app              # App version - runs with tray icon"
+echo "  ./build/bin/recorder output.wav              # Record audio to file"
+echo "  ./build/bin/test_transcription test/test1.wav # Test transcription"
 echo ""
 echo "⚠️  Note: This application requires accessibility permissions to monitor keyboard events."
 echo "   Go to System Preferences → Security & Privacy → Privacy → Accessibility"

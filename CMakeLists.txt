@@ -311,11 +311,16 @@ if(WHISPER_AVAILABLE)
             NO_DEFAULT_PATH
         )
         
-        # On macOS, also look for Metal library
+        # On macOS, also look for Metal and BLAS libraries
         if(APPLE)
             find_library(GGML_METAL_LIBRARY
                 NAMES ggml-metal
                 PATHS ${WHISPER_BUILD_DIR}/ggml/src/ggml-metal
+                NO_DEFAULT_PATH
+            )
+            find_library(GGML_BLAS_LIBRARY
+                NAMES ggml-blas
+                PATHS ${WHISPER_BUILD_DIR}/ggml/src/ggml-blas
                 NO_DEFAULT_PATH
             )
         endif()
@@ -330,8 +335,13 @@ if(WHISPER_AVAILABLE)
     
     # Link the libraries
     set(WHISPER_LIBS ${WHISPER_LIBRARY} ${GGML_LIBRARY} ${GGML_CPU_LIBRARY} ${GGML_BASE_LIBRARY})
-    if(APPLE AND GGML_METAL_LIBRARY)
-        list(APPEND WHISPER_LIBS ${GGML_METAL_LIBRARY})
+    if(APPLE)
+        if(GGML_METAL_LIBRARY)
+            list(APPEND WHISPER_LIBS ${GGML_METAL_LIBRARY})
+        endif()
+        if(GGML_BLAS_LIBRARY)
+            list(APPEND WHISPER_LIBS ${GGML_BLAS_LIBRARY})
+        endif()
     endif()
     
     target_link_libraries(yakety ${WHISPER_LIBS})
@@ -351,17 +361,22 @@ if(APPLE AND NOT CMAKE_CROSSCOMPILING)
     find_library(METAL_FRAMEWORK Metal)
     find_library(METALKIT_FRAMEWORK MetalKit)
     find_library(METALPERFORMANCE_FRAMEWORK MetalPerformanceShaders)
+    find_library(ACCELERATE_FRAMEWORK Accelerate)
     
     if(METAL_FRAMEWORK AND METALKIT_FRAMEWORK AND METALPERFORMANCE_FRAMEWORK AND WHISPER_AVAILABLE)
         target_link_libraries(yakety
             ${METAL_FRAMEWORK}
             ${METALKIT_FRAMEWORK}
             ${METALPERFORMANCE_FRAMEWORK}
+            ${ACCELERATE_FRAMEWORK}
+            ${FOUNDATION_FRAMEWORK}
         )
         target_link_libraries(yakety-app
             ${METAL_FRAMEWORK}
             ${METALKIT_FRAMEWORK}
             ${METALPERFORMANCE_FRAMEWORK}
+            ${ACCELERATE_FRAMEWORK}
+            ${FOUNDATION_FRAMEWORK}
         )
         message(STATUS "Linked Metal frameworks for GPU acceleration")
     endif()
@@ -393,11 +408,13 @@ if(WHISPER_AVAILABLE)
     target_include_directories(test_transcription PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
     
     # Link Metal frameworks for test_transcription
-    if(METAL_FRAMEWORK AND METALKIT_FRAMEWORK AND METALPERFORMANCE_FRAMEWORK)
+    if(APPLE AND METAL_FRAMEWORK AND METALKIT_FRAMEWORK AND METALPERFORMANCE_FRAMEWORK)
         target_link_libraries(test_transcription
             ${METAL_FRAMEWORK}
             ${METALKIT_FRAMEWORK}
             ${METALPERFORMANCE_FRAMEWORK}
+            ${ACCELERATE_FRAMEWORK}
+            ${FOUNDATION_FRAMEWORK}
         )
     endif()
 endif()
