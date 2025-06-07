@@ -222,7 +222,7 @@ whisperer/
 │   │   └── clipboard.c # Windows clipboard operations
 │   ├── keylogger.c     # macOS FN key detection
 │   ├── audio.h         # Audio recording API
-│   ├── audio_miniaudio.c  # Cross-platform audio (miniaudio)
+│   ├── audio.c         # Cross-platform audio (miniaudio)
 │   ├── miniaudio.h     # miniaudio library header
 │   ├── transcription.h # Whisper transcription API
 │   ├── transcription.cpp # Whisper integration

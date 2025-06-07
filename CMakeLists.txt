@@ -72,7 +72,7 @@ else()
 endif()
 
 # Common audio sources
-set(AUDIO_SOURCES src/audio_miniaudio.c)
+set(AUDIO_SOURCES src/audio.c)
 if(APPLE)
     list(APPEND AUDIO_SOURCES src/mac/audio_permissions.m)
 elseif(WIN32)
