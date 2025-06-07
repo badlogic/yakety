@@ -23,9 +23,16 @@ MODEL_FILE="$MODEL_DIR/ggml-base.en.bin"
 if [ ! -f "$MODEL_FILE" ]; then
     echo "📥 Downloading base.en model (~150MB)..."
     mkdir -p "$MODEL_DIR"
-    cd whisper.cpp
-    bash ./models/download-ggml-model.sh base.en
-    cd ..
+    
+    # Direct download since the script location may have changed
+    echo "   Downloading from Hugging Face..."
+    curl -L -o "$MODEL_FILE" "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+    
+    if [ ! -f "$MODEL_FILE" ]; then
+        echo "❌ Failed to download model"
+        exit 1
+    fi
+    echo "✅ Model downloaded successfully"
 fi
 
 # Build whisper.cpp for Windows

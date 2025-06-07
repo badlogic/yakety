@@ -184,6 +184,7 @@ elseif(APPLE)
     set(ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/assets/yakety.icns")
     set(MENUBAR_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/generated/menubar.png")
     set(MENUBAR_ICON_2X "${CMAKE_CURRENT_SOURCE_DIR}/assets/generated/menubar@2x.png")
+    set(WHISPER_MODEL "${CMAKE_CURRENT_SOURCE_DIR}/whisper.cpp/models/ggml-base.en.bin")
     
     if(EXISTS ${ICON_FILE})
         set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
@@ -198,6 +199,15 @@ elseif(APPLE)
     if(EXISTS ${MENUBAR_ICON_2X})
         set_source_files_properties(${MENUBAR_ICON_2X} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
         target_sources(yakety-app PRIVATE ${MENUBAR_ICON_2X})
+    endif()
+    
+    # Copy Whisper model to bundle
+    if(EXISTS ${WHISPER_MODEL})
+        set_source_files_properties(${WHISPER_MODEL} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/models")
+        target_sources(yakety-app PRIVATE ${WHISPER_MODEL})
+        message(STATUS "Including Whisper model in app bundle")
+    else()
+        message(WARNING "Whisper model not found at ${WHISPER_MODEL}")
     endif()
 else()
     add_executable(yakety-app ${YAKETY_APP_SOURCES})
@@ -252,10 +262,12 @@ endif()
 
 # Add whisper.cpp only if available
 if(WHISPER_AVAILABLE)
-    # Don't use add_subdirectory for whisper.cpp on Windows
-    # Instead, link to the pre-built static libraries
+    # Use pre-built static libraries approach for all platforms
+    # This avoids issues with whisper.cpp's CMake overriding our settings
+    
+    # Find the static libraries
     if(WIN32)
-        # Find the static libraries
+        # Windows uses Release/Debug subdirectories
         find_library(WHISPER_LIBRARY
             NAMES whisper
             PATHS ${WHISPER_BUILD_DIR}/src/Release ${WHISPER_BUILD_DIR}/src
@@ -276,25 +288,56 @@ if(WHISPER_AVAILABLE)
             PATHS ${WHISPER_BUILD_DIR}/ggml/src/Release ${WHISPER_BUILD_DIR}/ggml/src
             NO_DEFAULT_PATH
         )
-        
-        # Create imported targets
-        add_library(whisper STATIC IMPORTED)
-        set_target_properties(whisper PROPERTIES
-            IMPORTED_LOCATION ${WHISPER_LIBRARY}
-            INTERFACE_INCLUDE_DIRECTORIES "${WHISPER_DIR};${WHISPER_DIR}/include"
+    else()
+        # macOS/Linux don't use Release subdirectory
+        find_library(WHISPER_LIBRARY
+            NAMES whisper
+            PATHS ${WHISPER_BUILD_DIR}/src
+            NO_DEFAULT_PATH
+        )
+        find_library(GGML_LIBRARY
+            NAMES ggml
+            PATHS ${WHISPER_BUILD_DIR}/ggml/src
+            NO_DEFAULT_PATH
+        )
+        find_library(GGML_BASE_LIBRARY
+            NAMES ggml-base
+            PATHS ${WHISPER_BUILD_DIR}/ggml/src
+            NO_DEFAULT_PATH
+        )
+        find_library(GGML_CPU_LIBRARY
+            NAMES ggml-cpu
+            PATHS ${WHISPER_BUILD_DIR}/ggml/src
+            NO_DEFAULT_PATH
         )
         
-        # Link the libraries
-        target_link_libraries(yakety ${WHISPER_LIBRARY} ${GGML_LIBRARY} ${GGML_CPU_LIBRARY} ${GGML_BASE_LIBRARY})
-        target_link_libraries(yakety-app ${WHISPER_LIBRARY} ${GGML_LIBRARY} ${GGML_CPU_LIBRARY} ${GGML_BASE_LIBRARY})
-        target_include_directories(yakety PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
-        target_include_directories(yakety-app PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
-    else()
-        # On macOS/Linux, use add_subdirectory
-        add_subdirectory(${WHISPER_DIR} ${WHISPER_BUILD_DIR} EXCLUDE_FROM_ALL)
-        target_link_libraries(yakety whisper)
-        target_link_libraries(yakety-app whisper)
+        # On macOS, also look for Metal library
+        if(APPLE)
+            find_library(GGML_METAL_LIBRARY
+                NAMES ggml-metal
+                PATHS ${WHISPER_BUILD_DIR}/ggml/src/ggml-metal
+                NO_DEFAULT_PATH
+            )
+        endif()
     endif()
+    
+    # Create imported targets
+    add_library(whisper STATIC IMPORTED)
+    set_target_properties(whisper PROPERTIES
+        IMPORTED_LOCATION ${WHISPER_LIBRARY}
+        INTERFACE_INCLUDE_DIRECTORIES "${WHISPER_DIR};${WHISPER_DIR}/include"
+    )
+    
+    # Link the libraries
+    set(WHISPER_LIBS ${WHISPER_LIBRARY} ${GGML_LIBRARY} ${GGML_CPU_LIBRARY} ${GGML_BASE_LIBRARY})
+    if(APPLE AND GGML_METAL_LIBRARY)
+        list(APPEND WHISPER_LIBS ${GGML_METAL_LIBRARY})
+    endif()
+    
+    target_link_libraries(yakety ${WHISPER_LIBS})
+    target_link_libraries(yakety-app ${WHISPER_LIBS})
+    target_include_directories(yakety PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
+    target_include_directories(yakety-app PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
     
     # Add compile definition to enable whisper code
     target_compile_definitions(yakety PRIVATE WHISPER_AVAILABLE)
@@ -346,12 +389,8 @@ endif()
 
 # Link whisper.cpp to test_transcription if available
 if(WHISPER_AVAILABLE)
-    if(WIN32)
-        target_link_libraries(test_transcription ${WHISPER_LIBRARY} ${GGML_LIBRARY} ${GGML_CPU_LIBRARY} ${GGML_BASE_LIBRARY})
-        target_include_directories(test_transcription PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
-    else()
-        target_link_libraries(test_transcription whisper)
-    endif()
+    target_link_libraries(test_transcription ${WHISPER_LIBS})
+    target_include_directories(test_transcription PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
     
     # Link Metal frameworks for test_transcription
     if(METAL_FRAMEWORK AND METALKIT_FRAMEWORK AND METALPERFORMANCE_FRAMEWORK)

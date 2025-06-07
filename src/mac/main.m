@@ -111,19 +111,27 @@ void fn_key_released() {
             *(end + 1) = '\0';
             
             if (strlen(start) > 0) {
-                printf("📝 \"%s\"\n", start);
-                
-                // Hide overlay before pasting
-                overlay_hide();
-                
-                // Copy to clipboard and paste
-                copy_to_clipboard(start);
-                
-                // Small delay then paste
-                usleep(100000); // 100ms
-                paste_text();
-                
-                printf("✅ Text pasted!\n");
+                // Check if the result is just non-speech tokens
+                if (strcmp(start, "[BLANK_AUDIO]") == 0 || 
+                    strcmp(start, "(blank audio)") == 0 ||
+                    strcmp(start, "[BLANK AUDIO]") == 0) {
+                    printf("⚠️  No speech detected (blank audio)\n");
+                    overlay_hide();
+                } else {
+                    printf("📝 \"%s\"\n", start);
+                    
+                    // Hide overlay before pasting
+                    overlay_hide();
+                    
+                    // Copy to clipboard and paste
+                    copy_to_clipboard(start);
+                    
+                    // Small delay then paste
+                    usleep(100000); // 100ms
+                    paste_text();
+                    
+                    printf("✅ Text pasted!\n");
+                }
             } else {
                 printf("⚠️  Empty transcription\n");
                 overlay_hide();
@@ -202,8 +210,17 @@ int main(int argc, char *argv[]) {
     
     // Try multiple locations for the model
     const char* env_model = getenv("YAKETY_MODEL_PATH");
+    
+    // For macOS app bundle, check bundle resources first
+    NSString* bundleModelPath = [[NSBundle mainBundle] pathForResource:@"ggml-base.en" 
+                                                                ofType:@"bin" 
+                                                           inDirectory:@"models"];
+    const char* bundle_path = bundleModelPath ? [bundleModelPath UTF8String] : NULL;
+    
     const char* static_paths[] = {
-        // App bundle Resources
+        // Bundle resource (if found)
+        bundle_path,
+        // App bundle Resources (relative path)
         "../Resources/models/ggml-base.en.bin",
         // Development path from build directory
         "../whisper.cpp/models/ggml-base.en.bin",
@@ -233,9 +250,11 @@ int main(int argc, char *argv[]) {
         if (model_paths[i]) {
             // Check if file exists before trying to load
             if (access(model_paths[i], F_OK) == 0) {
+                printf("🔍 Found model at: %s\n", model_paths[i]);
                 if (transcription_init(model_paths[i]) == 0) {
                     whisper_initialized = true;
                     model_loaded = true;
+                    printf("✅ Model loaded from: %s\n", model_paths[i]);
                     break;
                 }
             }

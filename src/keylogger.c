@@ -2,6 +2,7 @@
 #include <stdbool.h>
 #include <ApplicationServices/ApplicationServices.h>
 #include <sys/time.h>
+#include <CoreFoundation/CoreFoundation.h>
 
 // Forward declarations for functions in main.c
 extern void fn_key_pressed(void);
@@ -83,7 +84,8 @@ int start_keylogger(void) {
     );
     
     if (!eventTap) {
-        fprintf(stderr, "ERROR: Unable to create event tap\n");
+        fprintf(stderr, "ERROR: Unable to create event tap. This usually means accessibility permission is not granted.\n");
+        fprintf(stderr, "Please grant accessibility permission in System Preferences → Security & Privacy → Privacy → Accessibility\n");
         return 1;
     }
     

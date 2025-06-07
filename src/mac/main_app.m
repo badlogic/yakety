@@ -119,17 +119,25 @@ void fn_key_released() {
             *(end + 1) = '\0';
             
             if (strlen(start) > 0) {
-                NSLog(@"Transcription: \"%s\"", start);
-                
-                // Hide overlay before pasting
-                overlay_hide();
-                
-                // Copy to clipboard and paste
-                copy_to_clipboard(start);
-                
-                // Small delay then paste
-                usleep(100000); // 100ms
-                paste_text();
+                // Check if the result is just non-speech tokens
+                if (strcmp(start, "[BLANK_AUDIO]") == 0 || 
+                    strcmp(start, "(blank audio)") == 0 ||
+                    strcmp(start, "[BLANK AUDIO]") == 0) {
+                    NSLog(@"No speech detected (blank audio)");
+                    overlay_hide();
+                } else {
+                    NSLog(@"Transcription: \"%s\"", start);
+                    
+                    // Hide overlay before pasting
+                    overlay_hide();
+                    
+                    // Copy to clipboard and paste
+                    copy_to_clipboard(start);
+                    
+                    // Small delay then paste
+                    usleep(100000); // 100ms
+                    paste_text();
+                }
             } else {
                 overlay_hide();
             }
@@ -261,8 +269,17 @@ void signal_handler(int sig) {
         // Initialize Whisper
         // Try multiple locations for the model
         const char* env_model = getenv("YAKETY_MODEL_PATH");
+        
+        // For macOS app bundle, check bundle resources first
+        NSString* bundleModelPath = [[NSBundle mainBundle] pathForResource:@"ggml-base.en" 
+                                                                    ofType:@"bin" 
+                                                               inDirectory:@"models"];
+        const char* bundle_path = bundleModelPath ? [bundleModelPath UTF8String] : NULL;
+        
         const char* static_paths[] = {
-            // App bundle Resources
+            // Bundle resource (if found)
+            bundle_path,
+            // App bundle Resources (relative path)
             "../Resources/models/ggml-base.en.bin",
             // Development path from build directory
             "../whisper.cpp/models/ggml-base.en.bin",
@@ -291,9 +308,11 @@ void signal_handler(int sig) {
             if (model_paths[i]) {
                 // Check if file exists before trying to load
                 if (access(model_paths[i], F_OK) == 0) {
+                    NSLog(@"🔍 Found model at: %s", model_paths[i]);
                     if (transcription_init(model_paths[i]) == 0) {
                         whisper_initialized = true;
                         model_loaded = true;
+                        NSLog(@"✅ Model loaded from: %s", model_paths[i]);
                         break;
                     }
                 }
@@ -317,9 +336,15 @@ void signal_handler(int sig) {
             dispatch_async(dispatch_get_main_queue(), ^{
                 NSAlert* alert = [[NSAlert alloc] init];
                 [alert setMessageText:@"Accessibility Permission Required"];
-                [alert setInformativeText:@"Please grant accessibility permission in System Preferences → Security & Privacy → Privacy → Accessibility."];
+                [alert setInformativeText:@"Please grant accessibility permission in System Preferences → Security & Privacy → Privacy → Accessibility.\n\nAfter granting permission, please restart Yakety."];
+                [alert addButtonWithTitle:@"Open System Preferences"];
                 [alert addButtonWithTitle:@"Quit"];
-                [alert runModal];
+                
+                NSModalResponse response = [alert runModal];
+                if (response == NSAlertFirstButtonReturn) {
+                    // Open System Preferences to Accessibility
+                    [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
+                }
                 [NSApp terminate:nil];
             });
             return;
