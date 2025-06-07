@@ -5,7 +5,7 @@
     <key>CFBundleDevelopmentRegion</key>
     <string>en</string>
     <key>CFBundleExecutable</key>
-    <string>yakety</string>
+    <string>yakety-app</string>
     <key>CFBundleIdentifier</key>
     <string>com.lemmy.yakety</string>
     <key>CFBundleInfoDictionaryVersion</key>

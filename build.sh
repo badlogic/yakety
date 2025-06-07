@@ -44,9 +44,16 @@ MODEL_FILE="$MODEL_DIR/ggml-base.en.bin"
 if [ ! -f "$MODEL_FILE" ]; then
     echo "📥 Downloading base.en model (~150MB)..."
     mkdir -p "$MODEL_DIR"
-    cd whisper.cpp
-    bash ./models/download-ggml-model.sh base.en
-    cd ..
+    
+    # Direct download since the script location may have changed
+    echo "   Downloading from Hugging Face..."
+    curl -L -o "$MODEL_FILE" "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin"
+    
+    if [ ! -f "$MODEL_FILE" ]; then
+        echo "❌ Failed to download model"
+        exit 1
+    fi
+    echo "✅ Model downloaded successfully"
 fi
 
 # Now build main yakety application
@@ -60,7 +67,47 @@ cmake -G Ninja ..
 echo "🔨 Compiling..."
 ninja
 
-echo "✅ Build complete! Binaries:"
+echo "✅ Build complete!"
+
+# Go back to project root
+cd ..
+
+# Bundle dynamic libraries for distribution
+if [ -d "./build/yakety-app.app" ]; then
+    echo "📦 Bundling dynamic libraries..."
+    mkdir -p "./build/yakety-app.app/Contents/Frameworks"
+    
+    # Copy all dynamic libraries
+    find ./whisper.cpp/build -name "*.dylib" -type f | while read lib; do
+        cp "$lib" "./build/yakety-app.app/Contents/Frameworks/"
+    done
+    
+    # Create symlinks for versioned libraries
+    cd "./build/yakety-app.app/Contents/Frameworks"
+    if [ -f "libwhisper.1.7.5.dylib" ]; then
+        ln -sf libwhisper.1.7.5.dylib libwhisper.1.dylib
+        ln -sf libwhisper.1.7.5.dylib libwhisper.dylib
+    fi
+    cd - > /dev/null
+    
+    # Add rpath to find libraries
+    install_name_tool -add_rpath @executable_path/../Frameworks "./build/yakety-app.app/Contents/MacOS/yakety-app" 2>/dev/null || true
+    
+    echo "✅ Libraries bundled"
+fi
+
+# Sign the app bundle to avoid "damaged" error
+if [ -d "./build/yakety-app.app" ]; then
+    echo "🔏 Signing app bundle..."
+    codesign --force --deep --sign - "./build/yakety-app.app"
+    xattr -cr "./build/yakety-app.app"
+    echo "✅ App signed with ad-hoc signature"
+else
+    echo "⚠️  No app bundle found to sign"
+fi
+
+echo ""
+echo "Binaries:"
 echo "  ./build/yakety             - CLI version (no tray icon)"
 echo "  ./build/yakety-app.app     - macOS app bundle (with tray icon)"
 echo "  ./build/recorder           - Audio recording utility"

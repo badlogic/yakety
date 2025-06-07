@@ -34,7 +34,7 @@ build\Release\recorder.exe output.wav
 
 ## Applications
 
-### 🎤 Yakety (`./build/yakety`)
+### 🎤 Yakety
 
 Main application that converts your speech to text instantly. Just hold the hotkey, speak, and release to paste.
 
@@ -42,19 +42,30 @@ Main application that converts your speech to text instantly. Just hold the hotk
 
 - Detects hotkey press/release events (FN on macOS, Right Ctrl on Windows)
 - Records audio while hotkey is held
-- Will transcribe with whisper.cpp (Phase 3)
-- Will paste transcribed text (Phase 6)
+- Transcribes speech using whisper.cpp
+- Automatically pastes transcribed text at cursor position
+- Shows visual feedback overlay during recording/transcribing
+- Menu bar/system tray icon (GUI version)
+
+**Versions:**
+
+- **CLI Version** (`yakety`) - Runs in terminal
+- **GUI Version** (`yakety-app`) - Runs with menu bar/system tray icon
 
 **Usage:**
 
 ```bash
-# macOS
+# macOS CLI
 ./build/yakety
-# Press and hold FN key to record
 
-# Windows (run as administrator)
+# macOS GUI (recommended)
+open ./build/yakety-app.app
+
+# Windows CLI (run as administrator)
 build\Release\yakety.exe
-# Press and hold Right Ctrl key to record
+
+# Windows GUI (run as administrator)
+build\Release\yakety-app.exe
 ```
 
 ### 🎵 Recorder (`./build/recorder`)
@@ -85,34 +96,74 @@ Standalone audio recording utility with flexible configuration.
 - `-w, --whisper` - Use Whisper settings (16kHz mono)
 - `-h, --help` - Show help
 
-## Build System
+## Build Instructions
 
-- **CMake** with **Ninja** generator for fast builds
-- **Pure C** implementation with minimal Objective-C for macOS APIs
-- **Framework linking**: ApplicationServices, AppKit, CoreFoundation, CoreAudio (macOS)
-- **Cross-platform audio**: miniaudio library for Windows/Linux/macOS support
+### macOS
 
 ```bash
-# macOS - Clean rebuild
-rm -rf build && ./build.sh
+# One-step build (recommended)
+./build.sh
 
-# Windows - Clean rebuild (run as administrator)
-rmdir /s /q build && build.bat
-
-# Manual build (macOS)
-mkdir -p build && cd build
-cmake -G Ninja ..
-ninja
-
-# Manual build (Windows)
-mkdir build && cd build
-cmake ..
-cmake --build . --config Release
+# This will:
+# 1. Generate icons from SVG (if tools available)
+# 2. Clone and build whisper.cpp with Metal support
+# 3. Download the Whisper model (~150MB)
+# 4. Build Yakety with all features
+# 5. Sign the app bundle (ad-hoc signature)
 ```
+
+### Windows
+
+```batch
+# Build on Windows (run as administrator)
+build.bat
+```
+
+### Windows Cross-Compilation (from macOS)
+
+```bash
+# Install MinGW-w64
+brew install mingw-w64
+
+# Cross-compile for Windows
+./build-windows.sh
+```
+
+### Cleaning Build Artifacts
+
+```bash
+# Clean only Yakety build files
+./clean.sh
+
+# Clean Yakety and whisper.cpp builds
+./clean.sh --whisper
+
+# Clean everything (asks about models)
+./clean.sh --all
+
+# Nuclear option - remove everything including whisper.cpp source
+./deep-clean.sh
+```
+
+## Custom Icons
+
+Yakety uses your custom SVG icon for both the app icon and menu bar/tray icon.
+
+```bash
+# Generate icons from SVG (requires librsvg and imagemagick)
+./generate-icons.sh
+
+# This creates:
+# - assets/yakety.icns (macOS app icon)
+# - assets/generated/menubar.png (menu bar icon)
+# - assets/generated/menubar@2x.png (Retina menu bar icon)
+```
+
+The build process automatically includes these icons in the app bundle.
 
 ## Audio Recording Module
 
-Reusable C API in `src/audio.h` and `src/audio_miniaudio.c`:
+Reusable C API in `src/audio.h` and `src/audio.c`:
 
 ```c
 // Create recorder with configuration
@@ -140,10 +191,28 @@ audio_recorder_destroy(recorder);
 
 ## Requirements
 
-- **macOS/Windows/Linux** (cross-platform with miniaudio)
-- **Xcode Command Line Tools** (`xcode-select --install`)
-- **CMake** (`brew install cmake`)
-- **Ninja** (`brew install ninja`)
+### Build Requirements
+
+- **CMake** 3.20 or later
+- **Ninja** (recommended) or Make
+- **C/C++ Compiler**:
+  - macOS: Xcode Command Line Tools (`xcode-select --install`)
+  - Windows: Visual Studio 2019+ or MinGW-w64
+  - Linux: GCC or Clang
+
+### Optional (for icons on macOS)
+
+```bash
+brew install librsvg imagemagick
+```
+
+### Runtime Requirements
+
+- **macOS**: 10.14 (Mojave) or later
+- **Windows**: Windows 10 or later
+- **Linux**: Ubuntu 20.04+ or equivalent (planned)
+- **RAM**: 4GB minimum (8GB recommended for faster transcription)
+- **Storage**: ~200MB for Whisper model
 
 ### Permissions
 
@@ -167,74 +236,90 @@ audio_recorder_destroy(recorder);
 
 ## Project Status
 
-### ✅ Phase 1: Foundation (Complete)
+### ✅ Completed Features
 
-- Native keylogger detects FN key events
-- Node.js app scaffold (deprecated)
+- Native keyboard monitoring (FN key on macOS, Right Ctrl on Windows)
+- Cross-platform audio recording with miniaudio
+- whisper.cpp integration with Metal acceleration (macOS)
+- Real-time speech-to-text transcription
+- Automatic clipboard paste functionality
+- Visual feedback overlay during recording/transcribing
+- Menu bar (macOS) and system tray (Windows) integration
+- Custom SVG icon support with automatic generation
+- Standalone audio recorder utility
 
-### ✅ Phase 2: Pure C Rewrite (Complete)
+### 🚧 Planned Features
 
-- Single C application with CMake build system
-- Integrated keylogger with Core Foundation event loop
-- Reusable audio recording module
-- Standalone recorder utility
+- Linux support
+- Multiple language support
+- Custom hotkey configuration
+- Transcription history
+- Settings UI for model selection
+- CUDA acceleration (Windows/Linux)
 
-### 🚧 Phase 3: whisper.cpp Integration (Planned)
-
-- Clone and build whisper.cpp with Metal support
-- Download base.en model (~150MB)
-- Link whisper.cpp as library for direct function calls
-
-### 🚧 Phase 4: Audio Recording Integration (Planned)
-
-- Integrate audio module into main yakety app
-- Start/stop recording on FN key events
-- Handle audio format requirements for whisper.cpp
-
-### 🚧 Phase 5: Transcription Pipeline (Planned)
-
-- Call whisper.cpp functions directly from C
-- Process recorded audio through Whisper model
-- Handle errors and empty results
-
-### 🚧 Phase 6: Clipboard Integration (Planned)
-
-- Paste transcribed text using CGEvent simulation
-- Test with various applications
-
-## Files
+## Project Structure
 
 ```
 yakety/
+├── assets/
+│   ├── yakety.svg          # Source SVG icon
+│   ├── yakety.icns         # Generated macOS app icon
+│   └── generated/          # Generated PNG icons
 ├── src/
-│   ├── mac/            # macOS-specific code
-│   │   ├── main.m      # macOS CLI entry point
-│   │   ├── main_app.m  # macOS GUI app entry point
-│   │   ├── overlay.m   # macOS overlay window
-│   │   ├── menubar.m   # macOS menu bar/status item
+│   ├── mac/                # macOS-specific code
+│   │   ├── main.m          # macOS CLI entry point
+│   │   ├── main_app.m      # macOS GUI app entry point
+│   │   ├── overlay.m       # macOS overlay window
+│   │   ├── menubar.m       # macOS menu bar/status item
 │   │   └── audio_permissions.m  # macOS audio permissions
-│   ├── windows/        # Windows-specific code
-│   │   ├── main.c      # Windows CLI entry point
-│   │   ├── main_app.c  # Windows GUI app entry point
-│   │   ├── keylogger.c # Windows keyboard hooks
-│   │   ├── overlay.c   # Windows overlay window
-│   │   ├── menubar.c   # Windows system tray
-│   │   └── clipboard.c # Windows clipboard operations
-│   ├── keylogger.c     # macOS FN key detection
-│   ├── audio.h         # Audio recording API
-│   ├── audio.c         # Cross-platform audio (miniaudio)
-│   ├── miniaudio.h     # miniaudio library header
-│   ├── transcription.h # Whisper transcription API
-│   ├── transcription.cpp # Whisper integration
-│   ├── recorder.c      # Standalone recording utility
+│   ├── windows/            # Windows-specific code
+│   │   ├── main.c          # Windows CLI entry point
+│   │   ├── main_app.c      # Windows GUI app entry point
+│   │   ├── keylogger.c     # Windows keyboard hooks
+│   │   ├── overlay.c       # Windows overlay window
+│   │   ├── menubar.c       # Windows system tray
+│   │   └── clipboard.c     # Windows clipboard operations
+│   ├── keylogger.c         # macOS FN key detection
+│   ├── audio.h             # Audio recording API
+│   ├── audio.c             # Cross-platform audio (miniaudio)
+│   ├── miniaudio.h         # miniaudio library header
+│   ├── transcription.h     # Whisper transcription API
+│   ├── transcription.cpp   # Whisper integration
+│   ├── recorder.c          # Standalone recording utility
 │   └── test_transcription.c  # Transcription test utility
-├── CMakeLists.txt      # Cross-platform build configuration
-├── build.sh            # macOS/Linux build script
-├── build.bat           # Windows build script
-└── README.md           # This file
+├── cmake/
+│   └── toolchain-mingw64.cmake  # Windows cross-compilation
+├── whisper.cpp/            # Whisper AI (cloned by build script)
+├── CMakeLists.txt          # Cross-platform build configuration
+├── Info.plist              # macOS app bundle metadata
+├── build.sh                # macOS/Linux build script
+├── build.bat               # Windows build script
+├── build-windows.sh        # Windows cross-compilation script
+├── clean.sh                # Clean build artifacts
+├── clean.bat               # Windows clean script
+├── deep-clean.sh           # Remove everything including deps
+├── generate-icons.sh       # Generate icons from SVG
+├── sign-app.sh             # Sign the macOS app bundle
+└── README.md               # This file
 ```
 
 ## Troubleshooting
+
+**"yakety-app is damaged and can't be opened" error:**
+
+This happens when macOS quarantines unsigned apps. The build script now automatically signs the app, but if you still see this:
+
+```bash
+# Option 1: Remove quarantine and sign manually
+./sign-app.sh
+open ./build/yakety-app.app
+
+# Option 2: Allow in System Settings
+# Go to System Settings → Privacy & Security → "Open Anyway"
+
+# Option 3: Run from command line (always works)
+./build/yakety-app.app/Contents/MacOS/yakety-app
+```
 
 **Build fails:**
 
@@ -244,13 +329,17 @@ brew install cmake ninja
 xcode-select --install
 
 # Clean rebuild
-rm -rf build && ./build.sh
+./clean.sh --all
+./build.sh
 ```
 
 **Keylogger not working:**
 
-- Grant Accessibility permission to Terminal
+- Grant Accessibility permission to Terminal or Yakety app
 - Check Console.app for error messages
+- Make sure to grant permission to the correct app:
+  - For CLI: Your terminal app (Terminal.app, iTerm2, etc.)
+  - For GUI: yakety-app.app
 
 **Audio recording fails:**
 
@@ -262,14 +351,50 @@ rm -rf build && ./build.sh
 - Ensure microphone is working in other apps
 - Try different sample rates: `./build/recorder -r 44100 test.wav`
 
-## Architecture Notes
+## Architecture
 
-- **Pure C** core with minimal Objective-C for system APIs
-- **Single binary** output with no runtime dependencies
-- **Cross-platform audio** via miniaudio library
-- **Reusable audio module** supports both file and buffer recording
-- **CMake + Ninja** for fast incremental builds
-- **Metal-optimized** whisper.cpp integration (planned)
+- **Core**: C with minimal platform-specific code (Objective-C for macOS, Win32 for Windows)
+- **Audio**: Cross-platform via miniaudio (single-header library)
+- **AI**: whisper.cpp for local speech recognition
+- **Build**: CMake with Ninja for fast builds
+- **GPU**: Metal acceleration on macOS, CUDA on Windows (optional)
+- **Distribution**: Single binary with embedded resources
+
+## Build Configuration
+
+The build system automatically:
+- Downloads and builds whisper.cpp with GPU support
+- Downloads the Whisper AI model (~150MB)
+- Bundles the model inside the app (macOS)
+- Generates app icons from SVG
+- Creates proper app bundles on macOS
+- Signs the app with ad-hoc signature
+- Links all dependencies statically
+
+## Distribution
+
+### macOS App Bundle
+
+The macOS app is fully self-contained:
+- Whisper model embedded at `Yakety.app/Contents/Resources/models/ggml-base.en.bin`
+- All icons and resources included
+- No external dependencies required
+- Ready for distribution after proper code signing
+
+### Code Signing
+
+For local use, the build script signs with an ad-hoc signature. For distribution:
+
+```bash
+# Sign with Developer ID (requires Apple Developer account)
+codesign --force --deep --sign "Developer ID Application: Your Name" ./build/yakety-app.app
+
+# Notarize for distribution
+xcrun notarytool submit ./build/yakety-app.app --wait
+
+# Create DMG for distribution
+hdiutil create -volname "Yakety" -srcfolder ./build/yakety-app.app -ov -format UDZO yakety.dmg
+```
 
 ---
 

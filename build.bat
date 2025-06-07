@@ -46,12 +46,15 @@ if not exist "whisper.cpp\build\Release\whisper.lib" (
 :: Download Whisper model if not present
 if not exist "whisper.cpp\models\ggml-base.en.bin" (
     echo Downloading Whisper base.en model...
+    if not exist "whisper.cpp\models" mkdir "whisper.cpp\models"
     cd whisper.cpp\models
+    echo   Downloading from Hugging Face...
     powershell -Command "Invoke-WebRequest -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin' -OutFile 'ggml-base.en.bin'"
     if %errorlevel% neq 0 (
         echo ERROR: Failed to download model
         exit /b 1
     )
+    echo Model downloaded successfully
     cd ..\..
 )
 

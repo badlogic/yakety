@@ -173,6 +173,7 @@ elseif(APPLE)
     set(ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/assets/yakety.icns")
     set(MENUBAR_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/generated/menubar.png")
     set(MENUBAR_ICON_2X "${CMAKE_CURRENT_SOURCE_DIR}/assets/generated/menubar@2x.png")
+    set(WHISPER_MODEL "${CMAKE_CURRENT_SOURCE_DIR}/whisper.cpp/models/ggml-base.en.bin")
     
     if(EXISTS ${ICON_FILE})
         set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
@@ -187,6 +188,15 @@ elseif(APPLE)
     if(EXISTS ${MENUBAR_ICON_2X})
         set_source_files_properties(${MENUBAR_ICON_2X} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
         target_sources(yakety-app PRIVATE ${MENUBAR_ICON_2X})
+    endif()
+    
+    # Copy Whisper model to bundle
+    if(EXISTS ${WHISPER_MODEL})
+        set_source_files_properties(${WHISPER_MODEL} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/models")
+        target_sources(yakety-app PRIVATE ${WHISPER_MODEL})
+        message(STATUS "Including Whisper model in app bundle")
+    else()
+        message(WARNING "Whisper model not found at ${WHISPER_MODEL}")
     endif()
 else()
     add_executable(yakety-app ${YAKETY_APP_SOURCES})
@@ -242,6 +252,11 @@ endif()
 
 # Add whisper.cpp only if available
 if(WHISPER_AVAILABLE)
+    # Force static libraries for whisper.cpp
+    set(BUILD_SHARED_LIBS OFF)
+    set(WHISPER_BUILD_TESTS OFF)
+    set(WHISPER_BUILD_EXAMPLES OFF)
+    
     # Add whisper.cpp build directory to find the whisper target
     add_subdirectory(${WHISPER_DIR} ${WHISPER_BUILD_DIR} EXCLUDE_FROM_ALL)
     
