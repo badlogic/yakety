@@ -3,6 +3,7 @@
 #include <stdlib.h>
 #include <signal.h>
 #include <stdbool.h>
+#include <string.h>
 #include "../audio.h"
 #include "../transcription.h"
 
@@ -18,7 +19,7 @@ bool keylogger_is_fn_pressed(void);
 void clipboard_paste_text(const char* text);
 
 // Include overlay functions
-#include "windows/overlay.h"
+#include "../overlay.h"
 
 // Console control handler for graceful shutdown
 BOOL WINAPI console_handler(DWORD signal) {

@@ -2,19 +2,19 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include "../audio.h"
 #include "../transcription.h"
+#include "../menubar.h"
 
 // Function prototypes
 int keylogger_init(void);
 void keylogger_cleanup(void);
 bool keylogger_is_fn_pressed(void);
 void clipboard_paste_text(const char* text);
-int menubar_init(void);
-void menubar_cleanup(void);
 
 // Include overlay functions
-#include "windows/overlay.h"
+#include "../overlay.h"
 
 // Global variables
 static bool g_running = true;

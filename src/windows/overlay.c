@@ -1,7 +1,7 @@
 #include <windows.h>
 #include <stdio.h>
 #include <string.h>
-#include "overlay.h"
+#include "../overlay.h"
 
 #define OVERLAY_CLASS_NAME L"YaketyOverlay"
 #define OVERLAY_WIDTH 300
@@ -50,6 +50,12 @@ LRESULT CALLBACK overlay_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             return 0;
         }
         
+        case WM_TIMER:
+            if (wParam == 1) {
+                overlay_hide();
+            }
+            return 0;
+            
         case WM_DESTROY:
             PostQuitMessage(0);
             return 0;
@@ -127,8 +133,29 @@ void overlay_show(const char* text) {
     UpdateWindow(g_overlay_window);
 }
 
+void overlay_show_result(const char* text) {
+    create_overlay_window();
+    if (!g_overlay_window) return;
+    
+    // Convert text to wide string
+    wchar_t wtext[256];
+    MultiByteToWideChar(CP_UTF8, 0, text, -1, wtext, 256);
+    
+    wcscpy_s(g_display_text, 256, wtext);
+    g_bg_color = RGB(0, 100, 0);  // Green background for results
+    g_text_color = RGB(255, 255, 255);
+    
+    InvalidateRect(g_overlay_window, NULL, TRUE);
+    ShowWindow(g_overlay_window, SW_SHOWNOACTIVATE);
+    UpdateWindow(g_overlay_window);
+    
+    // Auto-hide after 3 seconds
+    SetTimer(g_overlay_window, 1, 3000, NULL);
+}
+
 void overlay_hide(void) {
     if (g_overlay_window) {
         ShowWindow(g_overlay_window, SW_HIDE);
+        KillTimer(g_overlay_window, 1);
     }
 }
