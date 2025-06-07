@@ -4,14 +4,9 @@ set -e
 
 echo "🔨 Building Yakety..."
 
-# Generate icons if SVG exists and tools are available
-if [ -f "assets/yakety.svg" ] && command -v rsvg-convert &> /dev/null && command -v iconutil &> /dev/null; then
-    echo "🎨 Generating icons from SVG..."
+# Generate icons if needed
+if [ -f "generate-icons.sh" ]; then
     ./generate-icons.sh
-elif [ -f "assets/yakety.svg" ]; then
-    echo "⚠️  SVG found but icon generation tools not installed."
-    echo "   Install with: brew install librsvg"
-    echo "   Continuing without icon generation..."
 fi
 
 # Create build directory

@@ -21,9 +21,7 @@ whisper.cpp/
 *.app
 *.dmg
 
-# Generated icons
-assets/generated/
-assets/yakety.icns
+# Temporary iconset directory
 assets/yakety.iconset/
 
 # Logs
