@@ -1,0 +1,10 @@
+^D:\WORKSPACES\YAKETY\BUILD-STATIC\CMAKEFILES\C3839EC97A5F1E67424A0F9B5FF98B83\GENERATE.STAMP.RULE
+setlocal
+"C:\Program Files\CMake\bin\cmake.exe" -SD:/workspaces/yakety -BD:/workspaces/yakety/build-static --check-stamp-list CMakeFiles/generate.stamp.list --vs-solution-file D:/workspaces/yakety/build-static/yakety.sln
+if %errorlevel% neq 0 goto :cmEnd
+:cmEnd
+endlocal & call :cmErrorLevel %errorlevel% & goto :cmDone
+:cmErrorLevel
+exit /b %1
+:cmDone
+if %errorlevel% neq 0 goto :VCEnd
