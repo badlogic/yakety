@@ -45,7 +45,7 @@ static NSStatusItem* statusItem = nil;
     [alert setMessageText:@"Open Source Licenses"];
     [alert setInformativeText:licenseText];
     [alert addButtonWithTitle:@"OK"];
-    [alert setAlertStyle:NSInformationalAlertStyle];
+    [alert setAlertStyle:NSAlertStyleInformational];
     
     // Make the window wider to better display license info
     NSWindow* window = alert.window;
@@ -60,7 +60,7 @@ static NSStatusItem* statusItem = nil;
 
 static MenuBarDelegate* menuDelegate = nil;
 
-void menubar_init(void) {
+int menubar_init(void) {
     NSLog(@"menubar_init called");
     
     @autoreleasepool {
@@ -71,7 +71,7 @@ void menubar_init(void) {
         
         if (!statusItem) {
             NSLog(@"Failed to create status item!");
-            return;
+            return -1;
         }
         
         // Load icon image
@@ -122,6 +122,8 @@ void menubar_init(void) {
         // Make the status item visible
         statusItem.visible = YES;
     }
+    
+    return 0;
 }
 
 void menubar_cleanup(void) {
