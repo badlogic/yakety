@@ -1,6 +1,6 @@
 #ifdef __APPLE__
 #import <AVFoundation/AVFoundation.h>
-#include "audio.h"
+#include "../audio.h"
 
 int audio_request_permissions(void) {
     __block int result = -1;

@@ -1,5 +1,5 @@
 #import <Cocoa/Cocoa.h>
-#include "menubar.h"
+#include "../menubar.h"
 #include <signal.h>
 
 static NSStatusItem* statusItem = nil;

@@ -207,15 +207,30 @@ audio_recorder_destroy(recorder);
 ```
 whisperer/
 ├── src/
-│   ├── main.c          # Main whisperer application
-│   ├── keylogger.c     # FN key detection and handling
+│   ├── mac/            # macOS-specific code
+│   │   ├── main.m      # macOS CLI entry point
+│   │   ├── main_app.m  # macOS GUI app entry point
+│   │   ├── overlay.m   # macOS overlay window
+│   │   ├── menubar.m   # macOS menu bar/status item
+│   │   └── audio_permissions.m  # macOS audio permissions
+│   ├── windows/        # Windows-specific code
+│   │   ├── main.c      # Windows CLI entry point
+│   │   ├── main_app.c  # Windows GUI app entry point
+│   │   ├── keylogger.c # Windows keyboard hooks
+│   │   ├── overlay.c   # Windows overlay window
+│   │   ├── menubar.c   # Windows system tray
+│   │   └── clipboard.c # Windows clipboard operations
+│   ├── keylogger.c     # macOS FN key detection
 │   ├── audio.h         # Audio recording API
-│   ├── audio_miniaudio.c  # miniaudio implementation
-│   ├── audio_permissions_macos.m  # macOS permissions
+│   ├── audio_miniaudio.c  # Cross-platform audio (miniaudio)
 │   ├── miniaudio.h     # miniaudio library header
-│   └── Recorder.c      # Standalone recording utility
-├── CMakeLists.txt      # Build configuration
-├── build.sh            # Build script
+│   ├── transcription.h # Whisper transcription API
+│   ├── transcription.cpp # Whisper integration
+│   ├── recorder.c      # Standalone recording utility
+│   └── test_transcription.c  # Transcription test utility
+├── CMakeLists.txt      # Cross-platform build configuration
+├── build.sh            # macOS/Linux build script
+├── build.bat           # Windows build script
 └── README.md           # This file
 ```
 

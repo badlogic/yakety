@@ -6,11 +6,11 @@
 #include <string.h>
 #include <AppKit/AppKit.h>
 #include <CoreFoundation/CoreFoundation.h>
-#include "audio.h"
-#include "overlay.h"
-#include "menubar.h"
+#include "../audio.h"
+#include "../overlay.h"
+#include "../menubar.h"
 
-#include "transcription.h"
+#include "../transcription.h"
 
 // Forward declarations for keylogger functionality
 extern int start_keylogger(void);

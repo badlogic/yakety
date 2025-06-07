@@ -1,5 +1,5 @@
 #import <Cocoa/Cocoa.h>
-#include "overlay.h"
+#include "../overlay.h"
 
 static NSWindow* overlayWindow = nil;
 static NSTextField* messageLabel = nil;

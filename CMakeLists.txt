@@ -74,7 +74,7 @@ endif()
 # Common audio sources
 set(AUDIO_SOURCES src/audio_miniaudio.c)
 if(APPLE)
-    list(APPEND AUDIO_SOURCES src/audio_permissions_macos.m)
+    list(APPEND AUDIO_SOURCES src/mac/audio_permissions.m)
 elseif(WIN32)
     # Windows doesn't need special audio permissions
 endif()
@@ -82,18 +82,18 @@ endif()
 # Source files for whisperer CLI
 if(APPLE)
     set(WHISPERER_SOURCES
-        src/main.m
+        src/mac/main.m
         src/keylogger.c
         ${AUDIO_SOURCES}
-        src/overlay.m
+        src/mac/overlay.m
     )
 elseif(WIN32)
     set(WHISPERER_SOURCES
-        src/main_windows.c
-        src/keylogger_windows.c
+        src/windows/main.c
+        src/windows/keylogger.c
         ${AUDIO_SOURCES}
-        src/overlay_windows.c
-        src/clipboard_windows.c
+        src/windows/overlay.c
+        src/windows/clipboard.c
     )
 endif()
 
@@ -103,20 +103,20 @@ list(APPEND WHISPERER_SOURCES src/transcription.cpp)
 # Source files for whisperer app
 if(APPLE)
     set(WHISPERER_APP_SOURCES
-        src/main_app.m
+        src/mac/main_app.m
         src/keylogger.c
         ${AUDIO_SOURCES}
-        src/overlay.m
-        src/menubar.m
+        src/mac/overlay.m
+        src/mac/menubar.m
     )
 elseif(WIN32)
     set(WHISPERER_APP_SOURCES
-        src/main_app_windows.c
-        src/keylogger_windows.c
+        src/windows/main_app.c
+        src/windows/keylogger.c
         ${AUDIO_SOURCES}
-        src/overlay_windows.c
-        src/clipboard_windows.c
-        src/menubar_windows.c
+        src/windows/overlay.c
+        src/windows/clipboard.c
+        src/windows/menubar.c
     )
 endif()
 
@@ -131,6 +131,7 @@ set(RECORDER_SOURCES
 
 # Create the whisperer CLI executable
 add_executable(whisperer ${WHISPERER_SOURCES})
+target_include_directories(whisperer PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Create the whisperer app executable
 if(WIN32)
