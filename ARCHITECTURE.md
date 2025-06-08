@@ -32,7 +32,7 @@ Yakety uses a clean modular architecture that separates platform-specific code f
 The CMake build system creates:
 
 1. **`platform`** - Static library containing all platform implementations
-2. **`yakety`** - CLI executable (links to platform library)
+2. **`yakety-cli`** - CLI executable (links to platform library)
 3. **`yakety-app`** - GUI/tray executable (links to platform library, defines YAKETY_TRAY_APP)
 
 ## Key Design Principles

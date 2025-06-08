@@ -66,7 +66,7 @@ cmake --build build
 
 After building, you'll find the following in the `build/bin` directory:
 
-- **yakety** - CLI version that runs in terminal
+- **yakety-cli** - CLI version that runs in terminal
 - **yakety-app** (.app on macOS, .exe on Windows) - GUI version with system tray icon
 - **recorder** - Standalone audio recording utility
 - **test_transcription** - Test utility for verifying transcription
@@ -74,8 +74,8 @@ After building, you'll find the following in the `build/bin` directory:
 ### macOS
 ```
 build/bin/
-├── yakety                    # CLI executable
-├── yakety-app.app/          # macOS app bundle with tray icon
+├── yakety-cli                # CLI executable
+├── Yakety.app/              # macOS app bundle with tray icon
 ├── recorder                 # Audio recorder
 └── test_transcription       # Transcription test tool
 ```
@@ -83,8 +83,8 @@ build/bin/
 ### Windows
 ```
 build\bin\
-├── yakety.exe               # CLI executable
-├── yakety-app.exe          # Windows tray application
+├── yakety-cli.exe           # CLI executable
+├── Yakety.exe              # Windows tray application
 ├── recorder.exe            # Audio recorder
 └── test_transcription.exe  # Transcription test tool
 ```
@@ -94,10 +94,10 @@ build\bin\
 ### GUI Version (Recommended)
 ```bash
 # macOS
-open build/bin/yakety-app.app
+open build/bin/Yakety.app
 
 # Windows
-build\bin\yakety-app.exe
+build\bin\Yakety.exe
 ```
 
 The app will appear in your system tray/menubar. Hold the **Fn** key (macOS) or **Right Ctrl** (Windows) to record, release to transcribe and paste.
@@ -105,7 +105,7 @@ The app will appear in your system tray/menubar. Hold the **Fn** key (macOS) or 
 ### CLI Version
 ```bash
 # Run in terminal
-./build/bin/yakety
+./build/bin/yakety-cli
 ```
 
 ### Testing

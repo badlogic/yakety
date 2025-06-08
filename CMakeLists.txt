@@ -86,6 +86,7 @@ add_executable(yakety
     src/main.c
     ${BUSINESS_SOURCES}
 )
+set_target_properties(yakety PROPERTIES OUTPUT_NAME "yakety-cli")
 target_link_libraries(yakety PRIVATE platform)
 target_include_directories(yakety PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
@@ -96,6 +97,9 @@ if(WIN32)
         src/main.c
         ${BUSINESS_SOURCES}
     )
+    
+    # Set output name to Yakety
+    set_target_properties(yakety-app PROPERTIES OUTPUT_NAME "Yakety")
     
     # Add Windows resource file if it exists
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/yakety.rc")
@@ -110,6 +114,7 @@ elseif(APPLE)
     
     # Set bundle properties
     set_target_properties(yakety-app PROPERTIES
+        OUTPUT_NAME "Yakety"
         MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/src/mac/Info.plist
         MACOSX_BUNDLE_BUNDLE_NAME "Yakety"
         MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
