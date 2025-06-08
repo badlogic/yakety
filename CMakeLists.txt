@@ -13,6 +13,12 @@ include(GenerateIcons)
 include(BuildWhisper)
 include(PlatformSetup)
 
+# Platform-specific setup
+if(APPLE)
+    # Build universal binary for both Intel and Apple Silicon
+    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "Build for both architectures" FORCE)
+endif()
+
 # Generate icons if needed
 generate_icons()
 
@@ -21,12 +27,6 @@ build_whisper_cpp()
 
 # Download whisper model
 download_whisper_model()
-
-# Platform-specific setup
-if(APPLE)
-    # Build universal binary for both Intel and Apple Silicon
-    set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "Build for both architectures" FORCE)
-endif()
 
 # Setup platform libraries
 setup_platform_libs()

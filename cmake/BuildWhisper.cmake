@@ -29,8 +29,15 @@ function(build_whisper_cpp)
     if(APPLE)
         list(APPEND WHISPER_CMAKE_ARGS
             -DGGML_METAL=ON
-            -DCMAKE_OSX_ARCHITECTURES="x86_64;arm64"
         )
+        # Use the same OSX architectures as the main project
+        if(CMAKE_OSX_ARCHITECTURES)
+            string(REPLACE ";" "\\;" ESCAPED_ARCHITECTURES "${CMAKE_OSX_ARCHITECTURES}")
+            list(APPEND WHISPER_CMAKE_ARGS
+                "-DCMAKE_OSX_ARCHITECTURES=${ESCAPED_ARCHITECTURES}"
+                -DGGML_NATIVE=OFF
+            )
+        endif()
     elseif(WIN32)
         # Check for Vulkan
         if(DEFINED ENV{VULKAN_SDK})
