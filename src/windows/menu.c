@@ -1,5 +1,6 @@
 #include "../menu.h"
 #include "../logging.h"
+#include "../utils.h"
 #include <windows.h>
 #include <shellapi.h>
 #include <stdlib.h>
@@ -91,7 +92,7 @@ void menu_add_item(MenuSystem* menu, const char* title, MenuCallback callback) {
     }
     
     MenuItem* item = &menu->items[menu->item_count];
-    item->title = _strdup(title);
+    item->title = utils_strdup(title);
     item->callback = callback;
     item->is_separator = false;
     menu->item_count++;
@@ -224,7 +225,7 @@ void menu_update_item(MenuSystem* menu, int index, const char* new_title) {
     if (menu->items[index].title) {
         free((void*)menu->items[index].title);
     }
-    menu->items[index].title = _strdup(new_title);
+    menu->items[index].title = utils_strdup(new_title);
     
     // If menu is currently showing, update the actual menu item
     if (menu->tray_menu) {

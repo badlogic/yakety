@@ -5,8 +5,10 @@
 #include "../logging.h"
 #include "../config.h"
 #include <sys/time.h>
+#include <sys/stat.h>
 #include <unistd.h>
 #include <string.h>
+#include <pthread.h>
 
 double utils_get_time(void) {
     struct timeval tv;
@@ -269,4 +271,55 @@ void utils_delay_on_main_thread(int delay_ms, delay_callback_fn callback, void* 
         data->callback(data->arg);
         free(data);
     });
+}
+
+// Platform abstraction implementations
+static char g_config_dir_buffer[PATH_MAX] = {0};
+
+const char* utils_get_config_dir(void) {
+    @autoreleasepool {
+        NSString* home = NSHomeDirectory();
+        NSString* configDir = [home stringByAppendingPathComponent:@".yakety"];
+        strncpy(g_config_dir_buffer, [configDir UTF8String], PATH_MAX - 1);
+        g_config_dir_buffer[PATH_MAX - 1] = '\0';
+        return g_config_dir_buffer;
+    }
+}
+
+bool utils_ensure_dir_exists(const char* path) {
+    struct stat st;
+    if (stat(path, &st) == 0) {
+        return S_ISDIR(st.st_mode);
+    }
+    
+    // Create directory with 0755 permissions
+    return mkdir(path, 0755) == 0;
+}
+
+FILE* utils_fopen_read(const char* path) {
+    return fopen(path, "r");
+}
+
+FILE* utils_fopen_read_binary(const char* path) {
+    return fopen(path, "rb");
+}
+
+FILE* utils_fopen_write(const char* path) {
+    return fopen(path, "w");
+}
+
+FILE* utils_fopen_write_binary(const char* path) {
+    return fopen(path, "wb");
+}
+
+FILE* utils_fopen_append(const char* path) {
+    return fopen(path, "a");
+}
+
+char* utils_strdup(const char* str) {
+    return strdup(str);
+}
+
+int utils_stricmp(const char* s1, const char* s2) {
+    return strcasecmp(s1, s2);
 }

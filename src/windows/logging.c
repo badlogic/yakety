@@ -1,4 +1,5 @@
 #include "../logging.h"
+#include "../utils.h"
 #include <windows.h>
 #include <stdio.h>
 #include <stdarg.h>
@@ -40,11 +41,11 @@ void log_init(void) {
     }
     
     // Create directory if it doesn't exist
-    _mkdir(dir_path);
+    utils_ensure_dir_exists(dir_path);
     
-    // Open log file
+    // Open log file (truncate on startup)
     const char* log_path = get_log_path();
-    fopen_s(&g_log_file, log_path, "a");
+    g_log_file = utils_fopen_write(log_path);
     if (g_log_file) {
         // Write session header
         time_t now = time(NULL);

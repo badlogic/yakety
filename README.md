@@ -9,6 +9,9 @@ A voice-to-text input tool that works in any application. Hold a hotkey to recor
 - 🔒 **Privacy First** - All processing happens on your device
 - ⚡ **GPU Accelerated** - Metal on macOS, Vulkan on Windows (optional)
 - 🖥️ **Cross-Platform** - macOS and Windows support
+- ⚙️ **Configurable** - Custom model paths, notification preferences
+- 📝 **File Logging** - Automatic log rotation with debugging info
+- 🔄 **Smart Model Loading** - Automatic fallback to base model if custom model fails
 
 ## Prerequisites
 
@@ -50,16 +53,6 @@ cmake --build --preset=release
 # Or build with debug symbols and sanitizers
 cmake --preset=debug
 cmake --build --preset=debug
-```
-
-### Manual Build
-
-```bash
-# Configure
-cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release
-
-# Build
-cmake --build build
 ```
 
 ## Build Outputs
@@ -125,6 +118,11 @@ build\bin\Yakety.exe
 
 The app will appear in your system tray/menubar. Hold the **Fn** key (macOS) or **Right Ctrl** (Windows) to record, release to transcribe and paste.
 
+Right-click the tray icon for options:
+- **Launch at Login** - Start Yakety automatically when you log in
+- **About** - Version and license information
+- **Quit** - Exit the application
+
 ### CLI Version
 ```bash
 # Run in terminal
@@ -139,6 +137,48 @@ The app will appear in your system tray/menubar. Hold the **Fn** key (macOS) or 
 # Test transcription
 ./build/bin/test_transcription test.wav
 ```
+
+## Configuration
+
+Yakety stores its configuration in an INI file:
+- **macOS**: `~/.yakety/config.ini`
+- **Windows**: `%APPDATA%\Yakety\config.ini`
+
+### Configuration Options
+
+```ini
+[yakety]
+# Path to custom Whisper model (optional)
+model = /path/to/your/model.bin
+
+# Show notification overlays (true/false)
+show_notifications = true
+
+# Launch at login (true/false)
+launch_at_login = false
+```
+
+### Using Custom Models
+
+You can use larger or specialized Whisper models:
+
+```bash
+# Download a model (example: large-v3-turbo)
+curl -L -o ~/.yakety/models/ggml-large-v3-turbo-q8_0.bin \
+  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin"
+
+# Update config.ini
+[yakety]
+model = ~/.yakety/models/ggml-large-v3-turbo-q8_0.bin
+```
+
+If a custom model fails to load, Yakety automatically falls back to the bundled base model.
+
+### Logs
+
+Debug logs are stored with automatic rotation (10MB max, 5 files):
+- **macOS**: `~/Library/Logs/Yakety/`
+- **Windows**: `%LOCALAPPDATA%\Yakety\Logs\`
 
 ## Permissions
 

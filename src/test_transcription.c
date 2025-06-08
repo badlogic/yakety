@@ -18,7 +18,7 @@ typedef struct {
 } WavFile;
 
 static int read_wav_file(const char* filename, WavFile* wav) {
-    FILE* file = fopen(filename, "rb");
+    FILE* file = utils_fopen_read_binary(filename);
     if (!file) {
         log_error("ERROR: Could not open file: %s\n", filename);
         return -1;

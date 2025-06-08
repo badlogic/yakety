@@ -53,7 +53,7 @@ if(APPLE)
         src/mac/keylogger.c
         src/mac/app.m
         src/mac/utils.m
-        src/mac/config.m
+        src/config.c
     )
     target_link_libraries(platform PUBLIC ${PLATFORM_FRAMEWORKS})
 elseif(WIN32)
@@ -66,7 +66,7 @@ elseif(WIN32)
         src/windows/keylogger.c
         src/windows/app.c
         src/windows/utils.c
-        src/windows/config.c
+        src/config.c
     )
     target_link_libraries(platform PUBLIC ${PLATFORM_LIBS})
     if(HAS_VULKAN)
@@ -175,9 +175,9 @@ target_include_directories(test_transcription PRIVATE ${CMAKE_CURRENT_SOURCE_DIR
 
 # Link frameworks for recorder
 if(APPLE)
-    target_link_libraries(recorder ${PLATFORM_FRAMEWORKS})
+    target_link_libraries(recorder platform ${PLATFORM_FRAMEWORKS})
 elseif(WIN32)
-    target_link_libraries(recorder ${PLATFORM_LIBS})
+    target_link_libraries(recorder platform ${PLATFORM_LIBS})
 endif()
 
 # Find and link whisper.cpp libraries

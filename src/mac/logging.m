@@ -1,6 +1,7 @@
 #import <Foundation/Foundation.h>
 #include "../logging.h"
 #include "../app.h"
+#include "../utils.h"
 #include <stdio.h>
 #include <stdarg.h>
 #include <time.h>
@@ -41,9 +42,9 @@ void log_init(void) {
         }
     }
     
-    // Open log file
+    // Open log file (truncate on startup)
     const char* log_path = get_log_path();
-    g_log_file = fopen(log_path, "a");
+    g_log_file = utils_fopen_write(log_path);
     if (g_log_file) {
         // Write session header
         time_t now = time(NULL);

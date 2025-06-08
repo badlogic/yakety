@@ -1,6 +1,7 @@
 #define MINIAUDIO_IMPLEMENTATION
 #include "miniaudio.h"
 #include "audio.h"
+#include "utils.h"
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
@@ -145,7 +146,7 @@ int audio_recorder_start_file(AudioRecorder* recorder, const char* filename) {
     }
     
     // Store filename
-    recorder->filename = strdup(filename);
+    recorder->filename = utils_strdup(filename);
     recorder->is_file_recording = true;
     recorder->is_recording = true;
     recorder->start_time = 0;  // We'll track frames instead of time

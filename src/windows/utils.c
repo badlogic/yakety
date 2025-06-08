@@ -31,6 +31,10 @@ void utils_sleep_ms(int milliseconds) {
     Sleep(milliseconds);
 }
 
+const char* utils_get_model_path(void) {
+    return utils_get_model_path_with_config(NULL);
+}
+
 const char* utils_get_model_path_with_config(void* config) {
     static char model_path[MAX_PATH] = {0};
     
@@ -300,4 +304,88 @@ void utils_delay_on_main_thread(int delay_ms, delay_callback_fn callback, void* 
     
     // Use SetTimer with the data pointer as the timer ID
     SetTimer(NULL, (UINT_PTR)data, delay_ms, DelayTimerProc);
+}
+
+// Platform abstraction implementations
+static char g_config_dir_buffer[MAX_PATH] = {0};
+
+const char* utils_get_config_dir(void) {
+    // Try to get APPDATA directory
+    char* appdata = getenv("APPDATA");
+    if (appdata) {
+        snprintf(g_config_dir_buffer, MAX_PATH, "%s\\Yakety", appdata);
+        return g_config_dir_buffer;
+    }
+    
+    // Fallback to USERPROFILE
+    char* userprofile = getenv("USERPROFILE");
+    if (userprofile) {
+        snprintf(g_config_dir_buffer, MAX_PATH, "%s\\.yakety", userprofile);
+        return g_config_dir_buffer;
+    }
+    
+    // Last resort: try HOMEDRIVE + HOMEPATH
+    char* homedrive = getenv("HOMEDRIVE");
+    char* homepath = getenv("HOMEPATH");
+    if (homedrive && homepath) {
+        snprintf(g_config_dir_buffer, MAX_PATH, "%s%s\\.yakety", homedrive, homepath);
+        return g_config_dir_buffer;
+    }
+    
+    return NULL;
+}
+
+bool utils_ensure_dir_exists(const char* path) {
+    DWORD attrib = GetFileAttributesA(path);
+    
+    if (attrib != INVALID_FILE_ATTRIBUTES) {
+        return (attrib & FILE_ATTRIBUTE_DIRECTORY) != 0;
+    }
+    
+    // Create directory
+    if (CreateDirectoryA(path, NULL)) {
+        return true;
+    }
+    
+    // Check if it failed because it already exists
+    DWORD error = GetLastError();
+    return error == ERROR_ALREADY_EXISTS;
+}
+
+FILE* utils_fopen_read(const char* path) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, path, "r");
+    return (err == 0) ? file : NULL;
+}
+
+FILE* utils_fopen_read_binary(const char* path) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, path, "rb");
+    return (err == 0) ? file : NULL;
+}
+
+FILE* utils_fopen_write(const char* path) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, path, "w");
+    return (err == 0) ? file : NULL;
+}
+
+FILE* utils_fopen_write_binary(const char* path) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, path, "wb");
+    return (err == 0) ? file : NULL;
+}
+
+FILE* utils_fopen_append(const char* path) {
+    FILE* file = NULL;
+    errno_t err = fopen_s(&file, path, "a");
+    return (err == 0) ? file : NULL;
+}
+
+char* utils_strdup(const char* str) {
+    return _strdup(str);
+}
+
+int utils_stricmp(const char* s1, const char* s2) {
+    return _stricmp(s1, s2);
 }

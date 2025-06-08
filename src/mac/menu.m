@@ -2,6 +2,7 @@
 #include "../menu.h"
 #include "../dialog.h"
 #include "../logging.h"
+#include "../utils.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -66,7 +67,7 @@ void menu_add_item(MenuSystem* menu, const char* title, MenuCallback callback) {
     }
     
     MenuItem* item = &menu->items[menu->item_count];
-    item->title = strdup(title);
+    item->title = utils_strdup(title);
     item->callback = callback;
     item->is_separator = false;
     menu->item_count++;
@@ -219,7 +220,7 @@ void menu_update_item(MenuSystem* menu, int index, const char* new_title) {
     if (menu->items[index].title) {
         free((void*)menu->items[index].title);
     }
-    menu->items[index].title = strdup(new_title);
+    menu->items[index].title = utils_strdup(new_title);
     
     // If menu is currently showing, update the actual menu item
     if (menu == g_menu_system && statusMenu) {
