@@ -181,14 +181,8 @@ elseif(WIN32)
 endif()
 
 # Find and link whisper.cpp libraries
-if(WIN32)
-    # Windows uses Release subdirectory
-    set(WHISPER_LIB_DIR "${WHISPER_BUILD_DIR}/src/Release")
-    set(GGML_LIB_DIR "${WHISPER_BUILD_DIR}/ggml/src/Release")
-else()
-    set(WHISPER_LIB_DIR "${WHISPER_BUILD_DIR}/src")
-    set(GGML_LIB_DIR "${WHISPER_BUILD_DIR}/ggml/src")
-endif()
+set(WHISPER_LIB_DIR "${WHISPER_BUILD_DIR}/src")
+set(GGML_LIB_DIR "${WHISPER_BUILD_DIR}/ggml/src")
 
 find_library(WHISPER_LIBRARY NAMES whisper PATHS ${WHISPER_LIB_DIR} NO_DEFAULT_PATH REQUIRED)
 find_library(GGML_LIBRARY NAMES ggml PATHS ${GGML_LIB_DIR} NO_DEFAULT_PATH REQUIRED)
@@ -263,7 +257,15 @@ if(EXISTS ${MENUBAR_ICON_FILE})
 endif()
 
 # Compiler flags
-if(NOT WIN32)
+if(WIN32)
+    # For Windows Debug builds, use Release runtime library to match whisper.cpp
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        foreach(target yakety yakety-app recorder test_transcription platform)
+            target_compile_options(${target} PRIVATE /MD)
+            target_compile_definitions(${target} PRIVATE _ITERATOR_DEBUG_LEVEL=0)
+        endforeach()
+    endif()
+elseif(NOT WIN32)
     # Base warning flags
     set(WARNING_FLAGS
         -Wall

@@ -8,31 +8,25 @@
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_BASE 1000
 
-struct MenuSystem {
-    MenuItem* items;
-    int item_count;
-    int max_items;
-    HWND hidden_window;
-    NOTIFYICONDATAW tray_icon;
-    HMENU tray_menu;
-};
+static HWND g_hidden_window = NULL;
+static NOTIFYICONDATAW g_tray_icon = {0};
+static HMENU g_tray_menu = NULL;
+static MenuSystem* g_menu_system = NULL;
 
 static const wchar_t* WINDOW_CLASS_NAME = L"YaketyMenuWindow";
 
 // Window procedure for hidden window
 static LRESULT CALLBACK menu_window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
-    MenuSystem* menu = (MenuSystem*)GetWindowLongPtr(hwnd, GWLP_USERDATA);
-    
     switch (msg) {
         case WM_TRAYICON:
-            if (lParam == WM_RBUTTONUP && menu) {
+            if (lParam == WM_RBUTTONUP && g_tray_menu) {
                 // Show context menu
                 POINT pt;
                 GetCursorPos(&pt);
                 
                 SetForegroundWindow(hwnd);  // Required for menu to disappear when clicking away
                 
-                TrackPopupMenu(menu->tray_menu, TPM_RIGHTBUTTON, 
+                TrackPopupMenu(g_tray_menu, TPM_RIGHTBUTTON, 
                              pt.x, pt.y, 0, hwnd, NULL);
                 
                 PostMessage(hwnd, WM_NULL, 0, 0);  // Force menu to disappear
@@ -40,10 +34,10 @@ static LRESULT CALLBACK menu_window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             break;
             
         case WM_COMMAND:
-            if (menu) {
+            if (g_menu_system) {
                 int item_id = LOWORD(wParam) - ID_TRAY_BASE;
-                if (item_id >= 0 && item_id < menu->item_count) {
-                    MenuItem* item = &menu->items[item_id];
+                if (item_id >= 0 && item_id < g_menu_system->item_count) {
+                    MenuItem* item = &g_menu_system->items[item_id];
                     if (item->callback && !item->is_separator) {
                         item->callback();
                     }
@@ -52,9 +46,9 @@ static LRESULT CALLBACK menu_window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             break;
             
         case WM_DESTROY:
-            if (menu) {
+            if (g_tray_icon.cbSize > 0) {
                 // Remove tray icon
-                Shell_NotifyIconW(NIM_DELETE, &menu->tray_icon);
+                Shell_NotifyIconW(NIM_DELETE, &g_tray_icon);
             }
             PostQuitMessage(0);
             break;
@@ -116,6 +110,8 @@ int menu_show(MenuSystem* menu) {
         return -1;
     }
     
+    g_menu_system = menu;
+    
     // Register window class if not already registered
     WNDCLASSEXW wc = {0};
     if (!GetClassInfoExW(GetModuleHandle(NULL), WINDOW_CLASS_NAME, &wc)) {
@@ -131,7 +127,7 @@ int menu_show(MenuSystem* menu) {
     }
     
     // Create hidden window
-    menu->hidden_window = CreateWindowExW(
+    g_hidden_window = CreateWindowExW(
         0,
         WINDOW_CLASS_NAME,
         L"Yakety Menu",
@@ -142,57 +138,54 @@ int menu_show(MenuSystem* menu) {
         NULL
     );
     
-    if (!menu->hidden_window) {
+    if (!g_hidden_window) {
         log_error("Failed to create menu window");
         return -1;
     }
     
-    // Store menu pointer in window
-    SetWindowLongPtr(menu->hidden_window, GWLP_USERDATA, (LONG_PTR)menu);
-    
     // Create tray menu
-    menu->tray_menu = CreatePopupMenu();
+    g_tray_menu = CreatePopupMenu();
     
     // Add menu items
     for (int i = 0; i < menu->item_count; i++) {
         MenuItem* item = &menu->items[i];
         if (item->is_separator) {
-            AppendMenuW(menu->tray_menu, MF_SEPARATOR, 0, NULL);
+            AppendMenuW(g_tray_menu, MF_SEPARATOR, 0, NULL);
         } else if (item->title) {
             // Convert title to wide string
             int len = MultiByteToWideChar(CP_UTF8, 0, item->title, -1, NULL, 0);
             wchar_t* wide_title = (wchar_t*)malloc(len * sizeof(wchar_t));
             if (wide_title) {
                 MultiByteToWideChar(CP_UTF8, 0, item->title, -1, wide_title, len);
-                AppendMenuW(menu->tray_menu, MF_STRING, ID_TRAY_BASE + i, wide_title);
+                AppendMenuW(g_tray_menu, MF_STRING, ID_TRAY_BASE + i, wide_title);
                 free(wide_title);
             }
         }
     }
     
     // Create tray icon
-    menu->tray_icon.cbSize = sizeof(NOTIFYICONDATAW);
-    menu->tray_icon.hWnd = menu->hidden_window;
-    menu->tray_icon.uID = 1;
-    menu->tray_icon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
-    menu->tray_icon.uCallbackMessage = WM_TRAYICON;
+    g_tray_icon.cbSize = sizeof(NOTIFYICONDATAW);
+    g_tray_icon.hWnd = g_hidden_window;
+    g_tray_icon.uID = 1;
+    g_tray_icon.uFlags = NIF_ICON | NIF_MESSAGE | NIF_TIP;
+    g_tray_icon.uCallbackMessage = WM_TRAYICON;
     
     // Load application icon from resources
     HINSTANCE hInstance = GetModuleHandle(NULL);
-    menu->tray_icon.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(1));
+    g_tray_icon.hIcon = LoadIcon(hInstance, MAKEINTRESOURCE(1));
     
     // Fallback to default if custom icon not found
-    if (!menu->tray_icon.hIcon) {
-        menu->tray_icon.hIcon = LoadIcon(NULL, IDI_APPLICATION);
+    if (!g_tray_icon.hIcon) {
+        g_tray_icon.hIcon = LoadIcon(NULL, IDI_APPLICATION);
     }
     
-    wcscpy_s(menu->tray_icon.szTip, 128, L"Yakety - Right Ctrl to record");
+    wcscpy_s(g_tray_icon.szTip, 128, L"Yakety - Right Ctrl to record");
     
     // Add to system tray
-    if (!Shell_NotifyIconW(NIM_ADD, &menu->tray_icon)) {
+    if (!Shell_NotifyIconW(NIM_ADD, &g_tray_icon)) {
         log_error("Failed to add tray icon");
-        DestroyWindow(menu->hidden_window);
-        menu->hidden_window = NULL;
+        DestroyWindow(g_hidden_window);
+        g_hidden_window = NULL;
         return -1;
     }
     
@@ -203,13 +196,13 @@ int menu_show(MenuSystem* menu) {
 void menu_hide(MenuSystem* menu) {
     if (!menu) return;
     
-    if (menu->tray_icon.hWnd) {
-        Shell_NotifyIconW(NIM_DELETE, &menu->tray_icon);
+    if (g_tray_icon.hWnd) {
+        Shell_NotifyIconW(NIM_DELETE, &g_tray_icon);
     }
     
-    if (menu->hidden_window) {
-        DestroyWindow(menu->hidden_window);
-        menu->hidden_window = NULL;
+    if (g_hidden_window) {
+        DestroyWindow(g_hidden_window);
+        g_hidden_window = NULL;
     }
     
     log_info("Menu hidden");
@@ -227,13 +220,13 @@ void menu_update_item(MenuSystem* menu, int index, const char* new_title) {
     menu->items[index].title = _strdup(new_title);
     
     // If menu is currently showing, update the actual menu item
-    if (menu->tray_menu) {
+    if (g_tray_menu) {
         // Convert title to wide string
         int len = MultiByteToWideChar(CP_UTF8, 0, new_title, -1, NULL, 0);
         wchar_t* wide_title = (wchar_t*)malloc(len * sizeof(wchar_t));
         if (wide_title) {
             MultiByteToWideChar(CP_UTF8, 0, new_title, -1, wide_title, len);
-            ModifyMenuW(menu->tray_menu, ID_TRAY_BASE + index, MF_BYCOMMAND | MF_STRING, ID_TRAY_BASE + index, wide_title);
+            ModifyMenuW(g_tray_menu, ID_TRAY_BASE + index, MF_BYCOMMAND | MF_STRING, ID_TRAY_BASE + index, wide_title);
             free(wide_title);
         }
     }
@@ -244,10 +237,12 @@ void menu_destroy(MenuSystem* menu) {
     
     menu_hide(menu);
     
-    if (menu->tray_menu) {
-        DestroyMenu(menu->tray_menu);
-        menu->tray_menu = NULL;
+    if (g_tray_menu) {
+        DestroyMenu(g_tray_menu);
+        g_tray_menu = NULL;
     }
+    
+    g_menu_system = NULL;
     
     // Free menu item titles
     for (int i = 0; i < menu->item_count; i++) {

@@ -34,6 +34,7 @@ int app_init(const AppConfig* config) {
     g_config.name = config->name ? _strdup(config->name) : "Yakety";
     g_config.version = config->version ? _strdup(config->version) : "1.0";
     g_config.is_console = config->is_console;
+    g_config.on_ready = config->on_ready;
     
     // If this is a GUI app, create a hidden window for message processing
     if (!g_config.is_console) {
@@ -76,6 +77,15 @@ int app_init(const AppConfig* config) {
     
     g_running = true;
     log_info("App initialized: %s v%s", g_config.name, g_config.version);
+    
+    // Call the ready callback if provided
+    if (g_config.on_ready) {
+        log_info("Calling on_ready callback");
+        g_config.on_ready();
+    } else {
+        log_info("No on_ready callback provided");
+    }
+    
     return 0;
 }
 
@@ -103,8 +113,10 @@ void app_cleanup(void) {
 void app_run(void) {
     MSG msg;
     
+    log_info("App message loop started");
+    
     while (g_running) {
-        // Process Windows messages
+        // Process Windows messages (NULL = all windows for current thread)
         while (PeekMessage(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 g_running = false;
@@ -118,6 +130,8 @@ void app_run(void) {
         // Small sleep to prevent CPU spinning
         Sleep(1);
     }
+    
+    log_info("App message loop ended");
 }
 
 void app_quit(void) {

@@ -6,6 +6,9 @@
 #ifdef __APPLE__
 #include <dispatch/dispatch.h>
 #endif
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 #include "app.h"
 #include "logging.h"
@@ -20,6 +23,17 @@
 #ifdef YAKETY_TRAY_APP
 #include "menu.h"
 #include "dialog.h"
+#endif
+
+// Entry point macro for different platforms
+#ifdef _WIN32
+    #ifdef YAKETY_TRAY_APP
+        #define APP_MAIN app_main_wrapper  // Windows GUI gets wrapper
+    #else
+        #define APP_MAIN main              // Windows CLI gets normal main
+    #endif
+#else
+    #define APP_MAIN main                  // macOS/Linux always gets main
 #endif
 
 typedef struct {
@@ -272,6 +286,8 @@ static void menu_quit(void) {
 
 // Called when app is ready - for both CLI and tray apps
 static void on_app_ready(void) {
+    log_info("on_app_ready called - starting model loading");
+    
     // Show loading overlay
     if (config_get_bool(g_config, "show_notifications", true)) {
         overlay_show("Loading model");
@@ -383,7 +399,7 @@ static void continue_app_initialization(void) {
     #endif
 }
 
-int main(int argc, char** argv) {
+int APP_MAIN(int argc, char** argv) {
     (void)argc;
     (void)argv;
 
@@ -466,3 +482,18 @@ int main(int argc, char** argv) {
 
     return 0;
 }
+
+// Windows GUI entry point wrapper
+#ifdef _WIN32
+#ifdef YAKETY_TRAY_APP
+int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    (void)hInstance;
+    (void)hPrevInstance;
+    (void)lpCmdLine;
+    (void)nCmdShow;
+    
+    // Call the main function with dummy arguments
+    return app_main_wrapper(0, NULL);
+}
+#endif
+#endif

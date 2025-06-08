@@ -31,6 +31,10 @@ void utils_sleep_ms(int milliseconds) {
     Sleep(milliseconds);
 }
 
+const char* utils_get_model_path(void) {
+    return utils_get_model_path_with_config(NULL);
+}
+
 const char* utils_get_model_path_with_config(void* config) {
     static char model_path[MAX_PATH] = {0};
     
@@ -247,18 +251,29 @@ static void ensure_message_window(void) {
 
 static unsigned __stdcall async_work_thread(void* data) {
     AsyncWorkData* work_data = (AsyncWorkData*)data;
+    log_info("Async work thread started");
+    
     void* result = work_data->work(work_data->arg);
     
+    log_info("Async work completed, posting message to main thread");
     // Post message to main thread
     PostMessage(work_data->message_window, WM_ASYNC_CALLBACK, 
                 (WPARAM)work_data->callback, (LPARAM)result);
     
     free(work_data);
+    log_info("Async work thread finished");
     return 0;
 }
 
 void utils_async_execute(async_work_fn work, void* arg, async_callback_fn callback) {
+    log_info("utils_async_execute called");
+    
     ensure_message_window();
+    
+    if (!g_message_window) {
+        log_error("Failed to create message window for async execution");
+        return;
+    }
     
     AsyncWorkData* work_data = malloc(sizeof(AsyncWorkData));
     work_data->work = work;
@@ -266,7 +281,15 @@ void utils_async_execute(async_work_fn work, void* arg, async_callback_fn callba
     work_data->callback = callback;
     work_data->message_window = g_message_window;
     
-    _beginthreadex(NULL, 0, async_work_thread, work_data, 0, NULL);
+    log_info("Starting async thread");
+    HANDLE thread = (HANDLE)_beginthreadex(NULL, 0, async_work_thread, work_data, 0, NULL);
+    if (!thread) {
+        log_error("Failed to create async thread");
+        free(work_data);
+        return;
+    }
+    CloseHandle(thread);
+    log_info("Async thread started successfully");
 }
 
 // Delay execution implementation
