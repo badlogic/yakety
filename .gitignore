@@ -33,3 +33,4 @@ test_*.wav
 *.mp3
 *.m4a
 .claude
+nul

@@ -24,17 +24,42 @@ if %errorlevel% neq 0 (
 :: Check for Vulkan SDK (optional for GPU acceleration)
 set VULKAN_AVAILABLE=0
 set ENABLE_VULKAN=0
+
+:: First check VULKAN_SDK environment variable
 if defined VULKAN_SDK (
     echo Vulkan SDK found at: %VULKAN_SDK%
     set VULKAN_AVAILABLE=1
-    :: Ask user if they want to enable Vulkan
-    choice /C YN /T 5 /D N /M "Enable Vulkan GPU acceleration"
-    if errorlevel 2 (
-        echo Continuing with CPU-only build...
-    ) else (
-        echo Vulkan acceleration will be enabled.
-        set ENABLE_VULKAN=1
+    goto vulkan_prompt
+)
+
+:: Check C:\VulkanSDK for any version
+if exist "C:\VulkanSDK" (
+    for /d %%V in ("C:\VulkanSDK\*") do (
+        if exist "%%V\Bin\vulkaninfo.exe" (
+            echo Found Vulkan SDK at: %%V
+            set VULKAN_SDK=%%V
+            set VULKAN_AVAILABLE=1
+            goto vulkan_prompt
+        )
     )
+)
+
+:: Check Program Files locations
+if exist "%ProgramFiles%\VulkanSDK" (
+    for /d %%V in ("%ProgramFiles%\VulkanSDK\*") do (
+        if exist "%%V\Bin\vulkaninfo.exe" (
+            echo Found Vulkan SDK at: %%V
+            set VULKAN_SDK=%%V
+            set VULKAN_AVAILABLE=1
+            goto vulkan_prompt
+        )
+    )
+)
+
+:vulkan_prompt
+if %VULKAN_AVAILABLE%==1 (
+    echo Vulkan SDK detected - enabling GPU acceleration.
+    set ENABLE_VULKAN=1
 ) else (
     echo Note: Vulkan SDK not found. Building CPU-only version.
     echo       For GPU acceleration, install Vulkan SDK from:
