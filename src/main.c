@@ -119,7 +119,7 @@ static void menu_about(void) {
         "Voice-to-text input for any application\n\n"
         "Hold FN key (or Right Ctrl on Windows) to record,\n"
         "release to transcribe and paste.\n\n"
-        "© 2024 Mario Zechner");
+        "© 2025 Mario Zechner");
 }
 
 static void menu_licenses(void) {
