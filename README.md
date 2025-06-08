@@ -13,6 +13,7 @@ Cross-platform instant voice-to-text application. Hold a key, speak, release to 
 - Visual Studio 2019+ with C++ tools OR MinGW-w64
 - CMake 3.20+
 - Ninja (optional)
+- Vulkan SDK (optional, for GPU acceleration) - [Download](https://vulkan.lunarg.com/sdk/home#windows)
 
 ### Linux (planned)
 - GCC/Clang
@@ -31,6 +32,10 @@ git submodule update --init --recursive
 ./build.sh
 
 # Windows (native)
+build.bat
+
+# Windows with GPU acceleration (requires Vulkan SDK)
+# The build script will auto-detect and prompt to enable Vulkan
 build.bat
 
 # Windows (cross-compile from macOS)

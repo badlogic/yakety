@@ -104,11 +104,22 @@ const char* platform_find_model_path(void) {
         return "ggml-base.en.bin";
     }
     
+    // Check in models subdirectory of current directory
+    if (GetFileAttributesA("models/ggml-base.en.bin") != INVALID_FILE_ATTRIBUTES) {
+        return "models/ggml-base.en.bin";
+    }
+    
     // Check in executable directory
     if (GetModuleFileNameA(NULL, model_path, MAX_PATH)) {
         char* last_slash = strrchr(model_path, '\\');
         if (last_slash) {
             strcpy(last_slash + 1, "ggml-base.en.bin");
+            if (GetFileAttributesA(model_path) != INVALID_FILE_ATTRIBUTES) {
+                return model_path;
+            }
+            
+            // Check in models subdirectory of executable directory
+            strcpy(last_slash + 1, "models\\ggml-base.en.bin");
             if (GetFileAttributesA(model_path) != INVALID_FILE_ATTRIBUTES) {
                 return model_path;
             }

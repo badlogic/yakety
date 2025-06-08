@@ -21,6 +21,26 @@ if %errorlevel% neq 0 (
     exit /b 1
 )
 
+:: Check for Vulkan SDK (optional for GPU acceleration)
+set VULKAN_AVAILABLE=0
+set ENABLE_VULKAN=0
+if defined VULKAN_SDK (
+    echo Vulkan SDK found at: %VULKAN_SDK%
+    set VULKAN_AVAILABLE=1
+    :: Ask user if they want to enable Vulkan
+    choice /C YN /T 5 /D N /M "Enable Vulkan GPU acceleration"
+    if errorlevel 2 (
+        echo Continuing with CPU-only build...
+    ) else (
+        echo Vulkan acceleration will be enabled.
+        set ENABLE_VULKAN=1
+    )
+) else (
+    echo Note: Vulkan SDK not found. Building CPU-only version.
+    echo       For GPU acceleration, install Vulkan SDK from:
+    echo       https://vulkan.lunarg.com/sdk/home#windows
+)
+
 :: Check if we need to clone whisper.cpp
 if not exist "whisper.cpp" (
     echo Cloning whisper.cpp...
@@ -42,9 +62,14 @@ if %WHISPER_LIB_EXISTS%==0 (
     mkdir build 2>nul
     cd build
     
-    :: Configure for Windows - CPU only build first, Vulkan later
-    echo Configuring whisper.cpp for CPU-only build (static libraries^)...
-    cmake .. -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
+    :: Configure for Windows - with optional Vulkan support
+    if %ENABLE_VULKAN%==1 (
+        echo Configuring whisper.cpp with Vulkan GPU acceleration (static libraries^)...
+        cmake .. -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release -DGGML_VULKAN=ON
+    ) else (
+        echo Configuring whisper.cpp for CPU-only build (static libraries^)...
+        cmake .. -DWHISPER_BUILD_TESTS=OFF -DWHISPER_BUILD_EXAMPLES=OFF -DBUILD_SHARED_LIBS=OFF -DCMAKE_BUILD_TYPE=Release
+    )
     if %errorlevel% neq 0 (
         echo ERROR: Failed to configure whisper.cpp
         exit /b 1
@@ -66,8 +91,18 @@ if not exist "whisper.cpp\models\ggml-base.en.bin" (
     echo Downloading Whisper base.en model...
     if not exist "whisper.cpp\models" mkdir "whisper.cpp\models"
     cd whisper.cpp\models
-    echo   Downloading from Hugging Face...
-    powershell -Command "Invoke-WebRequest -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin' -OutFile 'ggml-base.en.bin'"
+    echo   Downloading from Hugging Face using curl for better speed...
+    
+    :: Try curl first (much faster)
+    where curl >nul 2>nul
+    if %errorlevel%==0 (
+        curl -L -o ggml-base.en.bin --progress-bar https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
+    ) else (
+        :: Fallback to PowerShell with progress preference disabled for speed
+        echo   curl not found, using PowerShell (this may be slower)...
+        powershell -Command "$ProgressPreference = 'SilentlyContinue'; Invoke-WebRequest -Uri 'https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin' -OutFile 'ggml-base.en.bin'"
+    )
+    
     if %errorlevel% neq 0 (
         echo ERROR: Failed to download model
         exit /b 1
