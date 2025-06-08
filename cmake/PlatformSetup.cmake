@@ -11,6 +11,7 @@ function(setup_platform_libs)
         find_library(AVFOUNDATION_FRAMEWORK AVFoundation REQUIRED)
         find_library(ACCELERATE_FRAMEWORK Accelerate REQUIRED)
         find_library(FOUNDATION_FRAMEWORK Foundation REQUIRED)
+        find_library(SERVICEMANAGEMENT_FRAMEWORK ServiceManagement REQUIRED)
         
         # Metal frameworks for GPU acceleration
         find_library(METAL_FRAMEWORK Metal)
@@ -22,6 +23,7 @@ function(setup_platform_libs)
             ${APPKIT_FRAMEWORK}
             ${COREFOUNDATION_FRAMEWORK}
             ${FOUNDATION_FRAMEWORK}
+            ${SERVICEMANAGEMENT_FRAMEWORK}
             ${COREAUDIO_FRAMEWORK}
             ${AUDIOTOOLBOX_FRAMEWORK}
             ${AVFOUNDATION_FRAMEWORK}

@@ -16,6 +16,9 @@ test_transcription
 # Whisper.cpp clone
 whisper.cpp/
 
+# IDE
+.vscode/
+
 # macOS
 .DS_Store
 *.app

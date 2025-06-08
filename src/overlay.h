@@ -7,6 +7,9 @@ void overlay_init(void);
 // Show overlay with given message
 void overlay_show(const char* message);
 
+// Show overlay with error styling (red icon/border)
+void overlay_show_error(const char* message);
+
 // Hide the overlay
 void overlay_hide(void);
 

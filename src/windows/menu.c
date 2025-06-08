@@ -215,6 +215,30 @@ void menu_hide(MenuSystem* menu) {
     log_info("Menu hidden");
 }
 
+void menu_update_item(MenuSystem* menu, int index, const char* new_title) {
+    if (!menu || index < 0 || index >= menu->item_count || !new_title) {
+        return;
+    }
+    
+    // Update the stored title
+    if (menu->items[index].title) {
+        free((void*)menu->items[index].title);
+    }
+    menu->items[index].title = _strdup(new_title);
+    
+    // If menu is currently showing, update the actual menu item
+    if (menu->tray_menu) {
+        // Convert title to wide string
+        int len = MultiByteToWideChar(CP_UTF8, 0, new_title, -1, NULL, 0);
+        wchar_t* wide_title = (wchar_t*)malloc(len * sizeof(wchar_t));
+        if (wide_title) {
+            MultiByteToWideChar(CP_UTF8, 0, new_title, -1, wide_title, len);
+            ModifyMenuW(menu->tray_menu, ID_TRAY_BASE + index, MF_BYCOMMAND | MF_STRING, ID_TRAY_BASE + index, wide_title);
+            free(wide_title);
+        }
+    }
+}
+
 void menu_destroy(MenuSystem* menu) {
     if (!menu) return;
     

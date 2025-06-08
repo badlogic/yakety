@@ -5,6 +5,7 @@
 
 #include "transcription.h"
 #include "logging.h"
+#include "utils.h"
 
 // Simple WAV file reader
 typedef struct {
@@ -141,8 +142,14 @@ int main(int argc, char* argv[]) {
     log_info("🧪 Testing Whisper transcription...\n");
     log_info("Audio file: %s\n", audio_file);
     
-    // Initialize transcription (will find model automatically)
-    if (transcription_init() != 0) {
+    // Get model path and initialize transcription
+    const char* model_path = utils_get_model_path();
+    if (!model_path) {
+        log_error("Could not find Whisper model file\n");
+        return 1;
+    }
+    
+    if (transcription_init(model_path) != 0) {
         log_error("Failed to initialize transcription\n");
         return 1;
     }

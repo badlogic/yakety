@@ -13,11 +13,9 @@ extern "C" {
 
 static struct whisper_context* ctx = NULL;
 
-int transcription_init(void) {
-    const char* model_path = utils_get_model_path();
+int transcription_init(const char* model_path) {
     if (!model_path) {
-        log_error("ERROR: Could not find Whisper model file\n");
-        log_error("Please ensure ggml-base.en.bin is in the correct location\n");
+        log_error("ERROR: No model path provided\n");
         return -1;
     }
     

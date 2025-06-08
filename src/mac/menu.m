@@ -210,6 +210,28 @@ void menu_hide(MenuSystem* menu) {
     g_menu_system = NULL;
 }
 
+void menu_update_item(MenuSystem* menu, int index, const char* new_title) {
+    if (!menu || index < 0 || index >= menu->item_count || !new_title) {
+        return;
+    }
+    
+    // Update the stored title
+    if (menu->items[index].title) {
+        free((void*)menu->items[index].title);
+    }
+    menu->items[index].title = strdup(new_title);
+    
+    // If menu is currently showing, update the actual menu item
+    if (menu == g_menu_system && statusMenu) {
+        dispatch_async(dispatch_get_main_queue(), ^{
+            NSMenuItem* item = [statusMenu itemAtIndex:index];
+            if (item && ![item isSeparatorItem]) {
+                [item setTitle:[NSString stringWithUTF8String:new_title]];
+            }
+        });
+    }
+}
+
 void menu_destroy(MenuSystem* menu) {
     if (!menu) return;
     

@@ -34,6 +34,9 @@ int menu_show(MenuSystem* menu);
 // Hide the menu
 void menu_hide(MenuSystem* menu);
 
+// Update a menu item's title
+void menu_update_item(MenuSystem* menu, int index, const char* new_title);
+
 // Destroy the menu system
 void menu_destroy(MenuSystem* menu);
 

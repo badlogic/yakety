@@ -5,7 +5,7 @@
 extern "C" {
 #endif
 
-int transcription_init(void);
+int transcription_init(const char* model_path);
 void transcription_cleanup(void);
 char* transcription_process(const float* audio_data, int n_samples, int sample_rate);
 

@@ -1,7 +1,9 @@
 #import <Foundation/Foundation.h>
 #import <AppKit/AppKit.h>
+#import <ServiceManagement/ServiceManagement.h>
 #include "../utils.h"
 #include "../logging.h"
+#include "../config.h"
 #include <sys/time.h>
 #include <unistd.h>
 #include <string.h>
@@ -16,10 +18,26 @@ void utils_sleep_ms(int milliseconds) {
     usleep(milliseconds * 1000);
 }
 
-const char* utils_get_model_path(void) {
+const char* utils_get_model_path_with_config(void* config) {
     static char model_path[PATH_MAX] = {0};
     
     log_info("🔍 Searching for Whisper model...\n");
+    
+    // Check if we have a config to get model path from
+    if (config) {
+        Config* cfg = (Config*)config;
+        const char* config_model = config_get_string(cfg, "model");
+        if (config_model && strlen(config_model) > 0) {
+            log_info("  Checking config model: %s\n", config_model);
+            if (access(config_model, F_OK) == 0) {
+                log_info("  ✅ Found model from config\n");
+                strncpy(model_path, config_model, PATH_MAX - 1);
+                return model_path;
+            } else {
+                log_info("  ❌ Config model not found or not accessible\n");
+            }
+        }
+    }
     
     @autoreleasepool {
         // First check current directory
@@ -108,8 +126,147 @@ const char* utils_get_model_path(void) {
     return NULL;
 }
 
+const char* utils_get_model_path(void) {
+    return utils_get_model_path_with_config(NULL);
+}
+
 void utils_open_accessibility_settings(void) {
     @autoreleasepool {
         [[NSWorkspace sharedWorkspace] openURL:[NSURL URLWithString:@"x-apple.systempreferences:com.apple.preference.security?Privacy_Accessibility"]];
     }
+}
+
+bool utils_is_launch_at_login_enabled(void) {
+    @autoreleasepool {
+        // Use SMAppService for macOS 13.0+, fall back to older method for earlier versions
+        if (@available(macOS 13.0, *)) {
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Wunguarded-availability-new"
+            NSError *error = nil;
+            SMAppService *service = [SMAppService mainAppService];
+            SMAppServiceStatus status = [service status];
+            return status == SMAppServiceStatusEnabled;
+            #pragma clang diagnostic pop
+        } else {
+            // For older macOS versions, check LaunchAgents
+            NSString* bundleID = [[NSBundle mainBundle] bundleIdentifier];
+            NSString* launchAgentPath = [NSString stringWithFormat:@"%@/Library/LaunchAgents/%@.plist", 
+                                       NSHomeDirectory(), bundleID];
+            return [[NSFileManager defaultManager] fileExistsAtPath:launchAgentPath];
+        }
+    }
+}
+
+bool utils_set_launch_at_login(bool enabled) {
+    @autoreleasepool {
+        // Use SMAppService for macOS 13.0+, fall back to older method for earlier versions
+        if (@available(macOS 13.0, *)) {
+            #pragma clang diagnostic push
+            #pragma clang diagnostic ignored "-Wunguarded-availability-new"
+            NSError *error = nil;
+            SMAppService *service = [SMAppService mainAppService];
+            
+            if (enabled) {
+                if ([service registerAndReturnError:&error]) {
+                    log_info("Successfully enabled launch at login\n");
+                    return true;
+                } else {
+                    log_error("Failed to enable launch at login: %s\n", 
+                            [[error localizedDescription] UTF8String]);
+                    return false;
+                }
+            } else {
+                if ([service unregisterAndReturnError:&error]) {
+                    log_info("Successfully disabled launch at login\n");
+                    return true;
+                } else {
+                    log_error("Failed to disable launch at login: %s\n", 
+                            [[error localizedDescription] UTF8String]);
+                    return false;
+                }
+            }
+            #pragma clang diagnostic pop
+        } else {
+            // For older macOS versions, use LaunchAgents
+            NSString* bundleID = [[NSBundle mainBundle] bundleIdentifier];
+            NSString* appPath = [[NSBundle mainBundle] bundlePath];
+            NSString* launchAgentPath = [NSString stringWithFormat:@"%@/Library/LaunchAgents/%@.plist", 
+                                       NSHomeDirectory(), bundleID];
+            
+            if (enabled) {
+                // Create LaunchAgent plist
+                NSDictionary* plist = @{
+                    @"Label": bundleID,
+                    @"ProgramArguments": @[appPath],
+                    @"RunAtLoad": @YES,
+                    @"LSUIElement": @YES
+                };
+                
+                // Create LaunchAgents directory if needed
+                NSString* launchAgentsDir = [launchAgentPath stringByDeletingLastPathComponent];
+                [[NSFileManager defaultManager] createDirectoryAtPath:launchAgentsDir 
+                                          withIntermediateDirectories:YES 
+                                                           attributes:nil 
+                                                                error:nil];
+                
+                // Write plist
+                return [plist writeToFile:launchAgentPath atomically:YES];
+            } else {
+                // Remove LaunchAgent plist
+                NSError* error = nil;
+                return [[NSFileManager defaultManager] removeItemAtPath:launchAgentPath error:&error];
+            }
+        }
+    }
+}
+
+// Async work implementation
+#include <pthread.h>
+
+typedef struct {
+    async_work_fn work;
+    void* arg;
+    async_callback_fn callback;
+} AsyncWorkData;
+
+static void* async_work_thread(void* data) {
+    AsyncWorkData* work_data = (AsyncWorkData*)data;
+    void* result = work_data->work(work_data->arg);
+    
+    // Schedule callback on main thread
+    dispatch_async(dispatch_get_main_queue(), ^{
+        work_data->callback(result);
+        free(work_data);
+    });
+    
+    return NULL;
+}
+
+void utils_async_execute(async_work_fn work, void* arg, async_callback_fn callback) {
+    AsyncWorkData* work_data = malloc(sizeof(AsyncWorkData));
+    work_data->work = work;
+    work_data->arg = arg;
+    work_data->callback = callback;
+    
+    pthread_t thread;
+    pthread_create(&thread, NULL, async_work_thread, work_data);
+    pthread_detach(thread);
+}
+
+// Delay execution implementation
+typedef struct {
+    delay_callback_fn callback;
+    void* arg;
+} DelayCallbackData;
+
+void utils_delay_on_main_thread(int delay_ms, delay_callback_fn callback, void* arg) {
+    DelayCallbackData* data = malloc(sizeof(DelayCallbackData));
+    data->callback = callback;
+    data->arg = arg;
+    
+    dispatch_time_t delay = dispatch_time(DISPATCH_TIME_NOW, delay_ms * NSEC_PER_MSEC);
+    dispatch_after(delay, dispatch_get_main_queue(), ^{
+        data->callback(data->arg);
+        free(data);
+    });
 }

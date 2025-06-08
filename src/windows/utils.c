@@ -1,5 +1,6 @@
 #include "../utils.h"
 #include "../logging.h"
+#include "../config.h"
 #include <windows.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -30,10 +31,26 @@ void utils_sleep_ms(int milliseconds) {
     Sleep(milliseconds);
 }
 
-const char* utils_get_model_path(void) {
+const char* utils_get_model_path_with_config(void* config) {
     static char model_path[MAX_PATH] = {0};
     
     log_info("🔍 Searching for Whisper model...\n");
+    
+    // Check if we have a config to get model path from
+    if (config) {
+        Config* cfg = (Config*)config;
+        const char* config_model = config_get_string(cfg, "model");
+        if (config_model && strlen(config_model) > 0) {
+            log_info("  Checking config model: %s\n", config_model);
+            if (GetFileAttributesA(config_model) != INVALID_FILE_ATTRIBUTES) {
+                log_info("  ✅ Found model from config\n");
+                strncpy_s(model_path, MAX_PATH, config_model, _TRUNCATE);
+                return model_path;
+            } else {
+                log_info("  ❌ Config model not found or not accessible\n");
+            }
+        }
+    }
     
     // Check current directory first
     log_info("  Checking current directory: ggml-base.en.bin\n");
@@ -115,3 +132,172 @@ const char* utils_get_model_path(void) {
     
     log_error("  ❌ Model not found in any location!\n");
     return NULL;
+}
+
+void utils_open_accessibility_settings(void) {
+    // Windows doesn't have a specific accessibility settings page for this
+    // Open general privacy settings
+    ShellExecuteA(NULL, "open", "ms-settings:privacy", NULL, NULL, SW_SHOW);
+}
+
+bool utils_is_launch_at_login_enabled(void) {
+    HKEY hKey;
+    LONG result = RegOpenKeyExA(HKEY_CURRENT_USER, 
+                               "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                               0, KEY_READ, &hKey);
+    
+    if (result != ERROR_SUCCESS) {
+        return false;
+    }
+    
+    // Check if our app is in the registry
+    char value[MAX_PATH];
+    DWORD size = sizeof(value);
+    DWORD type;
+    
+    result = RegQueryValueExA(hKey, "Yakety", NULL, &type, (LPBYTE)value, &size);
+    RegCloseKey(hKey);
+    
+    return result == ERROR_SUCCESS;
+}
+
+bool utils_set_launch_at_login(bool enabled) {
+    HKEY hKey;
+    LONG result = RegOpenKeyExA(HKEY_CURRENT_USER, 
+                               "Software\\Microsoft\\Windows\\CurrentVersion\\Run",
+                               0, KEY_WRITE, &hKey);
+    
+    if (result != ERROR_SUCCESS) {
+        log_error("Failed to open registry key\n");
+        return false;
+    }
+    
+    if (enabled) {
+        // Get the executable path
+        char exe_path[MAX_PATH];
+        if (GetModuleFileNameA(NULL, exe_path, MAX_PATH) == 0) {
+            RegCloseKey(hKey);
+            log_error("Failed to get executable path\n");
+            return false;
+        }
+        
+        // Add to registry
+        result = RegSetValueExA(hKey, "Yakety", 0, REG_SZ, 
+                               (BYTE*)exe_path, strlen(exe_path) + 1);
+        
+        if (result == ERROR_SUCCESS) {
+            log_info("Successfully enabled launch at login\n");
+        } else {
+            log_error("Failed to set registry value\n");
+        }
+    } else {
+        // Remove from registry
+        result = RegDeleteValueA(hKey, "Yakety");
+        
+        if (result == ERROR_SUCCESS) {
+            log_info("Successfully disabled launch at login\n");
+        } else if (result == ERROR_FILE_NOT_FOUND) {
+            // Already removed
+            result = ERROR_SUCCESS;
+        } else {
+            log_error("Failed to delete registry value\n");
+        }
+    }
+    
+    RegCloseKey(hKey);
+    return result == ERROR_SUCCESS;
+}
+
+// Async work implementation
+#include <process.h>
+
+typedef struct {
+    async_work_fn work;
+    void* arg;
+    async_callback_fn callback;
+    HWND message_window;
+} AsyncWorkData;
+
+#define WM_ASYNC_CALLBACK (WM_USER + 1)
+
+static HWND g_message_window = NULL;
+
+static LRESULT CALLBACK MessageWindowProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
+    if (msg == WM_ASYNC_CALLBACK) {
+        async_callback_fn callback = (async_callback_fn)wParam;
+        void* result = (void*)lParam;
+        callback(result);
+        return 0;
+    }
+    return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+
+static void ensure_message_window(void) {
+    if (g_message_window) return;
+    
+    WNDCLASSA wc = {0};
+    wc.lpfnWndProc = MessageWindowProc;
+    wc.hInstance = GetModuleHandle(NULL);
+    wc.lpszClassName = "YaketyAsyncMessageWindow";
+    RegisterClassA(&wc);
+    
+    g_message_window = CreateWindowExA(0, wc.lpszClassName, "", 0, 0, 0, 0, 0, 
+                                      HWND_MESSAGE, NULL, wc.hInstance, NULL);
+}
+
+static unsigned __stdcall async_work_thread(void* data) {
+    AsyncWorkData* work_data = (AsyncWorkData*)data;
+    void* result = work_data->work(work_data->arg);
+    
+    // Post message to main thread
+    PostMessage(work_data->message_window, WM_ASYNC_CALLBACK, 
+                (WPARAM)work_data->callback, (LPARAM)result);
+    
+    free(work_data);
+    return 0;
+}
+
+void utils_async_execute(async_work_fn work, void* arg, async_callback_fn callback) {
+    ensure_message_window();
+    
+    AsyncWorkData* work_data = malloc(sizeof(AsyncWorkData));
+    work_data->work = work;
+    work_data->arg = arg;
+    work_data->callback = callback;
+    work_data->message_window = g_message_window;
+    
+    _beginthreadex(NULL, 0, async_work_thread, work_data, 0, NULL);
+}
+
+// Delay execution implementation
+#define WM_DELAY_CALLBACK (WM_USER + 2)
+
+typedef struct {
+    delay_callback_fn callback;
+    void* arg;
+} DelayCallbackData;
+
+static VOID CALLBACK DelayTimerProc(HWND hwnd, UINT uMsg, UINT_PTR idEvent, DWORD dwTime) {
+    (void)hwnd;
+    (void)uMsg;
+    (void)dwTime;
+    
+    // Kill the timer
+    KillTimer(NULL, idEvent);
+    
+    // The timer ID is actually a pointer to our data
+    DelayCallbackData* data = (DelayCallbackData*)idEvent;
+    data->callback(data->arg);
+    free(data);
+}
+
+void utils_delay_on_main_thread(int delay_ms, delay_callback_fn callback, void* arg) {
+    ensure_message_window();
+    
+    DelayCallbackData* data = malloc(sizeof(DelayCallbackData));
+    data->callback = callback;
+    data->arg = arg;
+    
+    // Use SetTimer with the data pointer as the timer ID
+    SetTimer(NULL, (UINT_PTR)data, delay_ms, DelayTimerProc);
+}

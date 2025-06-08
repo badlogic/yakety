@@ -9,3 +9,5 @@
 - File extensions: .cpp for files that need C++ features, .c for pure C files
 
 - ALWAYS USE rg NOT GREP
+
+- Always use the CMake debug preset to build

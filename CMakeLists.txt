@@ -53,6 +53,7 @@ if(APPLE)
         src/mac/keylogger.c
         src/mac/app.m
         src/mac/utils.m
+        src/mac/config.m
     )
     target_link_libraries(platform PUBLIC ${PLATFORM_FRAMEWORKS})
 elseif(WIN32)
@@ -65,6 +66,7 @@ elseif(WIN32)
         src/windows/keylogger.c
         src/windows/app.c
         src/windows/utils.c
+        src/windows/config.c
     )
     target_link_libraries(platform PUBLIC ${PLATFORM_LIBS})
     if(HAS_VULKAN)
@@ -97,10 +99,10 @@ if(WIN32)
         src/main.c
         ${BUSINESS_SOURCES}
     )
-    
+
     # Set output name to Yakety
     set_target_properties(yakety-app PROPERTIES OUTPUT_NAME "Yakety")
-    
+
     # Add Windows resource file if it exists
     if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/yakety.rc")
         target_sources(yakety-app PRIVATE src/windows/yakety.rc)
@@ -111,7 +113,7 @@ elseif(APPLE)
         src/main.c
         ${BUSINESS_SOURCES}
     )
-    
+
     # Set bundle properties
     set_target_properties(yakety-app PROPERTIES
         OUTPUT_NAME "Yakety"
@@ -121,34 +123,34 @@ elseif(APPLE)
         MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
         MACOSX_BUNDLE_GUI_IDENTIFIER "com.yakety.app"
     )
-    
+
     # Copy resources to bundle
     set(ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/assets/yakety.icns")
     set(MENUBAR_ICON "${CMAKE_CURRENT_SOURCE_DIR}/assets/generated/menubar.png")
     set(MENUBAR_ICON_2X "${CMAKE_CURRENT_SOURCE_DIR}/assets/generated/menubar@2x.png")
     set(WHISPER_MODEL "${CMAKE_CURRENT_SOURCE_DIR}/whisper.cpp/models/ggml-base.en.bin")
-    
+
     if(EXISTS ${ICON_FILE})
         set_source_files_properties(${ICON_FILE} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
         target_sources(yakety-app PRIVATE ${ICON_FILE})
     endif()
-    
+
     if(EXISTS ${MENUBAR_ICON})
         set_source_files_properties(${MENUBAR_ICON} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
         target_sources(yakety-app PRIVATE ${MENUBAR_ICON})
     endif()
-    
+
     if(EXISTS ${MENUBAR_ICON_2X})
         set_source_files_properties(${MENUBAR_ICON_2X} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
         target_sources(yakety-app PRIVATE ${MENUBAR_ICON_2X})
     endif()
-    
+
     # Copy Whisper model to bundle
     if(EXISTS ${WHISPER_MODEL})
         set_source_files_properties(${WHISPER_MODEL} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/models")
         target_sources(yakety-app PRIVATE ${WHISPER_MODEL})
     endif()
-    
+
     # Code sign the app
     setup_code_signing(yakety-app)
 else()
@@ -215,9 +217,9 @@ endif()
 # Link whisper to all targets that need it
 foreach(target yakety yakety-app test_transcription)
     target_link_libraries(${target} PRIVATE ${WHISPER_LIBS})
-    target_include_directories(${target} PRIVATE 
-        ${WHISPER_DIR} 
-        ${WHISPER_DIR}/include 
+    target_include_directories(${target} PRIVATE
+        ${WHISPER_DIR}
+        ${WHISPER_DIR}/include
         ${WHISPER_DIR}/ggml/include
     )
     target_compile_definitions(${target} PRIVATE WHISPER_AVAILABLE)
@@ -247,6 +249,19 @@ if(EXISTS ${MODEL_FILE})
     )
 endif()
 
+# Copy menubar icon for CLI tools
+set(MENUBAR_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/assets/generated/menubar.png")
+if(EXISTS ${MENUBAR_ICON_FILE})
+    add_custom_command(TARGET yakety POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MENUBAR_ICON_FILE}" "$<TARGET_FILE_DIR:yakety>/menubar.png"
+        COMMENT "Copying menubar icon for CLI"
+    )
+    add_custom_command(TARGET test_transcription POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MENUBAR_ICON_FILE}" "$<TARGET_FILE_DIR:test_transcription>/menubar.png"
+        COMMENT "Copying menubar icon for test_transcription"
+    )
+endif()
+
 # Compiler flags
 if(NOT WIN32)
     # Base warning flags
@@ -257,7 +272,7 @@ if(NOT WIN32)
         -Wno-error=unused-parameter
         -Wno-error=unused-function
     )
-    
+
     # Debug-specific flags
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
         list(APPEND WARNING_FLAGS
@@ -272,7 +287,7 @@ if(NOT WIN32)
             target_link_options(${target} PRIVATE -fsanitize=address -fsanitize=undefined)
         endforeach()
     endif()
-    
+
     # Apply flags to all targets
     foreach(target yakety yakety-app recorder test_transcription)
         target_compile_options(${target} PRIVATE ${WARNING_FLAGS})
@@ -298,41 +313,41 @@ message(STATUS "")
 if(APPLE)
     set(DMG_NAME "Yakety-${PROJECT_VERSION}")
     set(DMG_DIR "${CMAKE_BINARY_DIR}/dmg_temp")
-    
+
     # Create DMG target
     add_custom_target(dmg
         DEPENDS yakety-app
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
         COMMAND ${CMAKE_COMMAND} -E make_directory ${DMG_DIR}
-        
+
         # Copy app bundle
-        COMMAND ${CMAKE_COMMAND} -E copy_directory 
-            $<TARGET_BUNDLE_DIR:yakety-app> 
+        COMMAND ${CMAKE_COMMAND} -E copy_directory
+            $<TARGET_BUNDLE_DIR:yakety-app>
             ${DMG_DIR}/Yakety.app
-        
+
         # Create Applications symlink
-        COMMAND ${CMAKE_COMMAND} -E create_symlink 
-            /Applications 
+        COMMAND ${CMAKE_COMMAND} -E create_symlink
+            /Applications
             ${DMG_DIR}/Applications
-        
+
         # Create DMG
-        COMMAND hdiutil create 
-            -volname "Yakety" 
-            -srcfolder ${DMG_DIR} 
-            -ov 
-            -format UDZO 
+        COMMAND hdiutil create
+            -volname "Yakety"
+            -srcfolder ${DMG_DIR}
+            -ov
+            -format UDZO
             ${CMAKE_BINARY_DIR}/${DMG_NAME}.dmg
-        
+
         # Clean up
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
-        
+
         # Report success
         COMMAND ${CMAKE_COMMAND} -E echo "✅ Created ${DMG_NAME}.dmg"
-        
+
         COMMENT "Creating DMG package..."
         VERBATIM
     )
-    
+
     # Create a nicer DMG with background (optional, requires create-dmg)
     find_program(CREATE_DMG create-dmg)
     if(CREATE_DMG)
@@ -340,12 +355,12 @@ if(APPLE)
             DEPENDS yakety-app
             COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
             COMMAND ${CMAKE_COMMAND} -E make_directory ${DMG_DIR}
-            
+
             # Copy app bundle
-            COMMAND ${CMAKE_COMMAND} -E copy_directory 
-                $<TARGET_BUNDLE_DIR:yakety-app> 
+            COMMAND ${CMAKE_COMMAND} -E copy_directory
+                $<TARGET_BUNDLE_DIR:yakety-app>
                 ${DMG_DIR}/Yakety.app
-            
+
             # Use create-dmg for a nicer DMG
             COMMAND ${CREATE_DMG}
                 --volname "Yakety"
@@ -357,32 +372,32 @@ if(APPLE)
                 --hdiutil-quiet
                 ${CMAKE_BINARY_DIR}/${DMG_NAME}.dmg
                 ${DMG_DIR}
-            
+
             # Report success
             COMMAND ${CMAKE_COMMAND} -E echo "✅ Created fancy ${DMG_NAME}.dmg"
-            
+
             COMMENT "Creating fancy DMG package with create-dmg..."
             VERBATIM
         )
-        message(STATUS "Fancy DMG target available: make dmg-fancy (requires create-dmg)")
+        message(STATUS "Fancy DMG target available:I'd like to head on a run, do you want to join me? (requires create-dmg)")
     endif()
-    
+
     message(STATUS "DMG target available: make dmg")
-    
+
     # ZIP creation target
     add_custom_target(zip
         DEPENDS yakety-app
         COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/${DMG_NAME}.zip
-        
+
         # Use ditto to create ZIP (better for macOS bundles with symlinks and resource forks)
         COMMAND ditto -c -k --keepParent ${CMAKE_BINARY_DIR}/bin/Yakety.app ${CMAKE_BINARY_DIR}/${DMG_NAME}.zip
-        
+
         # Report success
         COMMAND ${CMAKE_COMMAND} -E echo "✅ Created ${DMG_NAME}.zip"
-        
+
         COMMENT "Creating ZIP package..."
         VERBATIM
     )
-    
+
     message(STATUS "ZIP target available: make zip")
 endif()
