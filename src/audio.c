@@ -164,7 +164,7 @@ int audio_recorder_start_file(AudioRecorder* recorder, const char* filename) {
     return 0;
 }
 
-int audio_recorder_start_buffer(AudioRecorder* recorder) {
+int audio_recorder_start(AudioRecorder* recorder) {
     if (!recorder || recorder->is_recording) {
         return -1;
     }
@@ -207,13 +207,23 @@ int audio_recorder_stop(AudioRecorder* recorder) {
     return 0;
 }
 
-const float* audio_recorder_get_data(AudioRecorder* recorder, size_t* out_size) {
-    if (!recorder || !out_size) {
+float* audio_recorder_get_samples(AudioRecorder* recorder, int* out_sample_count) {
+    if (!recorder || !out_sample_count) {
         return NULL;
     }
     
-    *out_size = recorder->buffer_size;
-    return recorder->buffer;
+    *out_sample_count = (int)recorder->buffer_size;
+    
+    // Create a copy of the buffer for the caller
+    if (recorder->buffer_size > 0) {
+        float* copy = (float*)malloc(recorder->buffer_size * sizeof(float));
+        if (copy) {
+            memcpy(copy, recorder->buffer, recorder->buffer_size * sizeof(float));
+        }
+        return copy;
+    }
+    
+    return NULL;
 }
 
 double audio_recorder_get_duration(AudioRecorder* recorder) {
@@ -245,11 +255,3 @@ void audio_recorder_destroy(AudioRecorder* recorder) {
     free(recorder);
 }
 
-// Cross-platform permission request
-#ifndef __APPLE__
-int audio_request_permissions(void) {
-    // On non-macOS platforms, assume permissions are granted
-    return 0;
-}
-#endif
-// macOS implementation is in audio_permissions_macos.m

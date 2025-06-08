@@ -4,9 +4,9 @@ Yakety includes the following third-party libraries and components:
 
 ## miniaudio
 
-**Version:** v0.11.22  
-**Copyright:** 2025 David Reid  
-**License:** Public Domain (Unlicense) or MIT-0 (dual-licensed)  
+**Version:** v0.11.22
+**Copyright:** 2025 David Reid
+**License:** Public Domain (Unlicense) or MIT-0 (dual-licensed)
 **Source:** https://github.com/mackron/miniaudio
 
 ```
@@ -61,8 +61,8 @@ SOFTWARE.
 
 ## whisper.cpp
 
-**Copyright:** 2023-2024 The ggml authors  
-**License:** MIT License  
+**Copyright:** 2023-2024 The ggml authors
+**License:** MIT License
 **Source:** https://github.com/ggerganov/whisper.cpp
 
 ```
@@ -91,17 +91,17 @@ SOFTWARE.
 
 ## ggml
 
-**Copyright:** 2023-2024 The ggml authors  
-**License:** MIT License  
-**Source:** https://github.com/ggerganov/ggml  
+**Copyright:** 2023-2024 The ggml authors
+**License:** MIT License
+**Source:** https://github.com/ggerganov/ggml
 **Note:** Included as part of whisper.cpp
 
 The ggml library is licensed under the same MIT License as whisper.cpp above.
 
 ## Whisper Model (ggml-base.en.bin)
 
-**Copyright:** OpenAI  
-**License:** MIT License  
+**Copyright:** OpenAI
+**License:** MIT License
 **Source:** https://github.com/openai/whisper
 
 The Whisper model weights are provided by OpenAI under the MIT License. The specific model used (base.en) is a quantized version created for whisper.cpp.

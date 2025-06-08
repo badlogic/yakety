@@ -1,234 +1,160 @@
 # Yakety
 
-Cross-platform instant voice-to-text application. Hold a key, speak, release to paste transcribed text at cursor.
+A voice-to-text input tool that works in any application. Hold a hotkey to record your voice, release to transcribe and paste the text.
 
 ## Features
 
-- **Instant transcription**: Hold Right Ctrl (Windows/Linux) or Fn (macOS), speak, release to paste
-- **Local AI processing**: Uses OpenAI Whisper running locally - no internet required
-- **Cross-platform**: Native apps for Windows, macOS, and Linux
-- **Minimal UI**: Small overlay shows recording status
-- **System integration**: Menu bar (macOS) or system tray (Windows/Linux)
+- 🎤 **Universal Voice Input** - Works in any application
+- 🚀 **Fast Local Transcription** - Uses OpenAI's Whisper model running locally
+- 🔒 **Privacy First** - All processing happens on your device
+- ⚡ **GPU Accelerated** - Metal on macOS, Vulkan on Windows (optional)
+- 🖥️ **Cross-Platform** - macOS and Windows support
 
-## Build Instructions
+## Prerequisites
 
-### Windows Build Requirements
+### macOS
+- macOS 10.15 or later
+- CMake 3.20+
+- Ninja build system (`brew install ninja`)
+- Xcode Command Line Tools
+- ImageMagick (optional, for icon generation): `brew install imagemagick`
 
-1. **Visual Studio 2022** (Community Edition is free)
-   - Download: https://visualstudio.microsoft.com/downloads/
-   - During installation, select "Desktop development with C++"
-   - Includes MSVC compiler and Windows SDK
+### Windows
+- Windows 10 or later
+- CMake 3.20+
+- Ninja build system (`choco install ninja` or `winget install Ninja-build.Ninja`)
+- Visual Studio 2019 or later (MSVC compiler)
+- Vulkan SDK (optional, for GPU acceleration)
+- ImageMagick (optional, for icon generation)
 
-2. **CMake** (3.20 or newer)
-   - Download: https://cmake.org/download/
-   - Choose "Add CMake to system PATH" during installation
+### Linux
+- CMake 3.20+
+- Ninja build system
+- GCC or Clang
+- ALSA/PulseAudio development libraries
+- X11 development libraries
 
-3. **Git for Windows**
-   - Download: https://git-scm.com/download/win
-   - Required for cloning the repository
+## Building
 
-4. **Vulkan SDK** (Optional - for GPU acceleration)
-   - Download: https://vulkan.lunarg.com/sdk/home#windows
-   - Provides 2-5x faster transcription on compatible GPUs
+The build process is fully automated through CMake. It will:
+1. Generate icons from the master icon (if ImageMagick is available)
+2. Clone and build whisper.cpp with appropriate acceleration
+3. Download the Whisper model (~150MB)
+4. Build Yakety
 
-### Linux Build Requirements
-
-1. **Build Tools**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt update
-   sudo apt install build-essential cmake git
-
-   # Fedora
-   sudo dnf install gcc gcc-c++ make cmake git
-
-   # Arch
-   sudo pacman -S base-devel cmake git
-   ```
-
-2. **Audio Libraries**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt install libasound2-dev libpulse-dev
-
-   # Fedora
-   sudo dnf install alsa-lib-devel pulseaudio-libs-devel
-
-   # Arch
-   sudo pacman -S alsa-lib pulse
-   ```
-
-3. **X11 Development Libraries**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt install libx11-dev libxtst-dev
-
-   # Fedora
-   sudo dnf install libX11-devel libXtst-devel
-
-   # Arch
-   sudo pacman -S libx11 libxtst
-   ```
-
-4. **Vulkan SDK** (Optional - for GPU acceleration)
-   ```bash
-   # Ubuntu/Debian
-   wget -qO- https://packages.lunarg.com/lunarg-signing-key-pub.asc | sudo tee /etc/apt/trusted.gpg.d/lunarg.asc
-   sudo wget -qO /etc/apt/sources.list.d/lunarg-vulkan-jammy.list https://packages.lunarg.com/vulkan/lunarg-vulkan-jammy.list
-   sudo apt update
-   sudo apt install vulkan-sdk
-
-   # Other distros: Download from https://vulkan.lunarg.com/sdk/home#linux
-   ```
-
-### Build Steps
+### Quick Build
 
 ```bash
-# Clone repository
-git clone https://github.com/badlogic/yakety
+# Clone the repository
+git clone https://github.com/yourusername/yakety.git
 cd yakety
 
-# Windows
-build.bat
-# Executables will be in build\bin\
-# - yakety.exe (CLI version)
-# - yakety-app.exe (GUI version with system tray)
+# Build with default settings (Release mode)
+cmake --preset=default
+cmake --build --preset=default
 
-# Linux
-chmod +x build.sh
-./build.sh
-# Executables will be in build/bin/
-# - yakety (CLI version)
-# - yakety-app (GUI version with system tray)
+# Or build with debug symbols and sanitizers
+cmake --preset=debug
+cmake --build --preset=debug
+```
 
+### Manual Build
+
+```bash
+# Configure
+cmake -G Ninja -B build -DCMAKE_BUILD_TYPE=Release
+
+# Build
+cmake --build build
+```
+
+## Build Outputs
+
+After building, you'll find the following in the `build/bin` directory:
+
+- **yakety** - CLI version that runs in terminal
+- **yakety-app** (.app on macOS, .exe on Windows) - GUI version with system tray icon
+- **recorder** - Standalone audio recording utility
+- **test_transcription** - Test utility for verifying transcription
+
+### macOS
+```
+build/bin/
+├── yakety                    # CLI executable
+├── yakety-app.app/          # macOS app bundle with tray icon
+├── recorder                 # Audio recorder
+└── test_transcription       # Transcription test tool
+```
+
+### Windows
+```
+build\bin\
+├── yakety.exe               # CLI executable
+├── yakety-app.exe          # Windows tray application
+├── recorder.exe            # Audio recorder
+└── test_transcription.exe  # Transcription test tool
+```
+
+## Usage
+
+### GUI Version (Recommended)
+```bash
 # macOS
-./build.sh
-# Creates Yakety.app in dist/
+open build/bin/yakety-app.app
+
+# Windows
+build\bin\yakety-app.exe
 ```
 
-### First Run
+The app will appear in your system tray/menubar. Hold the **Fn** key (macOS) or **Right Ctrl** (Windows) to record, release to transcribe and paste.
 
-1. **Windows**: Run as Administrator (required for global hotkeys)
-   ```
-   Right-click yakety-app.exe → Run as administrator
-   ```
-
-2. **Linux**: May need to add user to input group for global hotkeys
-   ```bash
-   sudo usermod -a -G input $USER
-   # Log out and back in for changes to take effect
-   ```
-
-3. **All platforms**: The Whisper AI model (~150MB) will be downloaded on first run
-
-## System Requirements
-
-### Minimum Requirements
-- **CPU**: x64 processor with AVX2 support (Intel Haswell 2013+ / AMD Excavator 2015+)
-- **RAM**: 4GB (8GB recommended)
-- **Storage**: 500MB free space
-- **OS**: 
-  - Windows 10/11 (64-bit)
-  - macOS 10.15+
-  - Linux with X11 (Wayland support planned)
-
-### GPU Acceleration (Optional)
-- **NVIDIA**: GTX 600+ with CUDA support
-- **AMD**: Radeon HD 7000+ with Vulkan support
-- **Intel**: HD Graphics 4400+ or Arc with Vulkan support
-
-## Troubleshooting
-
-### Windows Issues
-
-**"Cannot open windows.h" during build**
-- Ensure Visual Studio is installed with C++ desktop development workload
-- Run build from Developer Command Prompt for VS 2022
-
-**"Administrator privileges required"**
-- Right-click the .exe and select "Run as administrator"
-- Required for global keyboard monitoring
-
-**Build fails with "... was unexpected at this time"**
-- Update to latest version - this was fixed in recent commits
-
-### Linux Issues
-
-**"Cannot detect key presses"**
+### CLI Version
 ```bash
-# Add user to input group
-sudo usermod -a -G input $USER
-# Log out and back in
+# Run in terminal
+./build/bin/yakety
 ```
 
-**"No audio devices found"**
+### Testing
 ```bash
-# Install PulseAudio or ALSA
-sudo apt install pulseaudio
-# or
-sudo apt install alsa-base alsa-utils
+# Record audio to file
+./build/bin/recorder test.wav
+
+# Test transcription
+./build/bin/test_transcription test.wav
 ```
 
-**Build fails with missing dependencies**
-- Check that all development packages are installed (see Linux Build Requirements)
+## Permissions
 
-### General Issues
+### macOS
+Grant accessibility permissions:
+1. System Preferences → Security & Privacy → Privacy → Accessibility
+2. Add Terminal (for CLI) or Yakety (for GUI) to the allowed list
 
-**Model download is slow**
-- The build script now uses curl for faster downloads
-- Alternatively, manually download from: https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-base.en.bin
-- Place in `whisper.cpp/models/` directory
-
-**Poor transcription quality**
-- Speak clearly and at normal pace
-- Reduce background noise
-- Consider using a better microphone
-- GPU acceleration can improve accuracy
-
-## Build Artifacts
-
-- `yakety` - CLI version for terminal use
-- `yakety-app` - GUI app with menu bar/system tray
-- `recorder` - Standalone audio recording utility
-- `test_transcription` - Whisper integration test
-- `ggml-base.en.bin` - Whisper AI model (~150MB, auto-downloaded)
-
-### Platform Packages
-- **macOS**: `dist/Yakety.app` - Self-contained app bundle
-- **Windows**: `dist/yakety.exe` + `dist/yakety-app.exe` - Standalone executables
+### Windows
+Run as administrator if hotkeys don't work in elevated applications.
 
 ## Architecture
 
-### Core Components
-- `src/audio.c/h` - Cross-platform audio capture (miniaudio)
-- `src/transcription.cpp/h` - Whisper AI integration
-- `src/keylogger.c` - Global hotkey monitoring
-- `src/overlay.h` - Recording/transcribing visual feedback
-- `src/menubar.h` - System tray/menu bar interface
+See [ARCHITECTURE.md](ARCHITECTURE.md) for details on the modular architecture and how to extend the application.
 
-### Platform-Specific
-- `src/mac/` - macOS implementations (Objective-C)
-  - `main.m` - CLI entry point
-  - `main_app.m` - GUI app entry point
-  - `menubar.m` - macOS menu bar
-  - `overlay.m` - macOS overlay window
-  - `audio_permissions.m` - macOS permission handling
+## Troubleshooting
 
-- `src/windows/` - Windows implementations (Win32)
-  - `main.c` - CLI entry point
-  - `main_app.c` - GUI app entry point
-  - `menubar.c` - Windows system tray
-  - `overlay.c` - Windows overlay window
-  - `keylogger.c` - Windows keyboard hooks
-  - `clipboard.c` - Windows clipboard handling
+### Build Issues
+- **"whisper.cpp not found"** - The build will automatically clone it
+- **"Model download failed"** - Check internet connection, the build will download ~150MB
+- **"Ninja not found"** - Install Ninja or use `cmake -G "Unix Makefiles"` instead
 
-### External Dependencies
-- `whisper.cpp/` - Local AI speech recognition (submodule)
-- `src/miniaudio.h` - Audio library (header-only)
+### Runtime Issues
+- **"No speech detected"** - Speak clearly and ensure microphone permissions are granted
+- **"Hotkey not working"** - Check accessibility/admin permissions
+- **"App damaged" (macOS)** - The build automatically signs the app, but you may need to allow it in Security settings
 
-### Build System
-- `CMakeLists.txt` - Main build configuration
-- `build.sh` - macOS build script
-- `build.bat` - Windows build script
-- `build-windows.sh` - Cross-compile for Windows from macOS
-- `package.sh` - macOS app bundle packaging
+## License
+
+MIT License - see LICENSE file for details.
+
+## Acknowledgments
+
+- [OpenAI Whisper](https://github.com/openai/whisper) for the speech recognition model
+- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) for the C++ implementation
+- [miniaudio](https://github.com/mackron/miniaudio) for cross-platform audio

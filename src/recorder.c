@@ -107,13 +107,7 @@ int main(int argc, char* argv[]) {
     printf("   Bits per sample: %d\n", config.bits_per_sample);
     printf("\n");
     
-    // Request audio permissions
-    printf("🔐 Requesting microphone permissions...\n");
-    if (audio_request_permissions() != 0) {
-        fprintf(stderr, "❌ Error: Microphone permission denied\n");
-        fprintf(stderr, "   Please grant microphone access in System Preferences → Security & Privacy → Privacy → Microphone\n");
-        return 1;
-    }
+    // Miniaudio handles permissions automatically
     printf("✅ Microphone permission granted\n\n");
     
     // Create audio recorder

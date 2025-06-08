@@ -24,22 +24,22 @@ extern const AudioConfig HIGH_QUALITY_AUDIO_CONFIG;
 // Returns NULL on failure
 AudioRecorder* audio_recorder_create(const AudioConfig* config);
 
-// Start recording to a file
+// Start recording to memory buffer
+// Returns 0 on success, -1 on failure
+int audio_recorder_start(AudioRecorder* recorder);
+
+// Start recording to file
 // Returns 0 on success, -1 on failure
 int audio_recorder_start_file(AudioRecorder* recorder, const char* filename);
-
-// Start recording to memory buffer (for whisper processing)
-// Returns 0 on success, -1 on failure
-int audio_recorder_start_buffer(AudioRecorder* recorder);
 
 // Stop recording
 // Returns 0 on success, -1 on failure
 int audio_recorder_stop(AudioRecorder* recorder);
 
-// Get the recorded audio data (when recording to buffer)
-// Returns pointer to audio data, size is written to out_size
-// Data is valid until next start/stop call or recorder is destroyed
-const float* audio_recorder_get_data(AudioRecorder* recorder, size_t* out_size);
+// Get the recorded audio samples
+// Returns pointer to audio data, count is written to out_sample_count
+// Caller must free the returned buffer
+float* audio_recorder_get_samples(AudioRecorder* recorder, int* out_sample_count);
 
 // Get recording duration in seconds
 double audio_recorder_get_duration(AudioRecorder* recorder);
@@ -50,8 +50,5 @@ bool audio_recorder_is_recording(AudioRecorder* recorder);
 // Destroy the audio recorder
 void audio_recorder_destroy(AudioRecorder* recorder);
 
-// Request microphone permissions (macOS specific)
-// Returns 0 if permission granted, -1 if denied
-int audio_request_permissions(void);
 
 #endif // AUDIO_H

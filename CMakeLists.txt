@@ -1,232 +1,120 @@
 cmake_minimum_required(VERSION 3.20)
-project(yakety)
+project(yakety VERSION 1.0.0)
 
+# C/C++ standards
 set(CMAKE_C_STANDARD 99)
 set(CMAKE_C_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_STANDARD 11)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-# Platform-specific settings
+# Include helper modules
+list(APPEND CMAKE_MODULE_PATH "${CMAKE_SOURCE_DIR}/cmake")
+include(GenerateIcons)
+include(BuildWhisper)
+include(PlatformSetup)
+
+# Generate icons if needed
+generate_icons()
+
+# Build whisper.cpp
+build_whisper_cpp()
+
+# Download whisper model
+download_whisper_model()
+
+# Platform-specific setup
 if(APPLE)
     # Build universal binary for both Intel and Apple Silicon
     set(CMAKE_OSX_ARCHITECTURES "x86_64;arm64" CACHE STRING "Build for both architectures" FORCE)
-    
-    # Find required frameworks for macOS
-    find_library(APPLICATION_SERVICES_FRAMEWORK ApplicationServices)
-    find_library(APPKIT_FRAMEWORK AppKit)
-    find_library(COREFOUNDATION_FRAMEWORK CoreFoundation)
-    find_library(COREAUDIO_FRAMEWORK CoreAudio)
-    find_library(AUDIOTOOLBOX_FRAMEWORK AudioToolbox)
-    find_library(AVFOUNDATION_FRAMEWORK AVFoundation)
-    find_library(ACCELERATE_FRAMEWORK Accelerate)
-    find_library(FOUNDATION_FRAMEWORK Foundation)
-elseif(WIN32)
-    # Windows libraries for miniaudio and system features
-    set(PLATFORM_LIBS winmm ole32 user32 shell32 gdi32)
-    
-    # Check for Vulkan SDK
-    if(DEFINED ENV{VULKAN_SDK})
-        set(VULKAN_SDK_PATH $ENV{VULKAN_SDK})
-        find_library(VULKAN_LIBRARY 
-            NAMES vulkan-1 vulkan
-            PATHS ${VULKAN_SDK_PATH}/Lib
-            PATH_SUFFIXES "" "x64"
-        )
-        if(VULKAN_LIBRARY)
-            message(STATUS "Found Vulkan library: ${VULKAN_LIBRARY}")
-            list(APPEND PLATFORM_LIBS ${VULKAN_LIBRARY})
-        endif()
-    endif()
-elseif(UNIX)
-    # Linux libraries for miniaudio
-    find_package(Threads REQUIRED)
-    set(PLATFORM_LIBS ${CMAKE_THREAD_LIBS_INIT} dl m)
-    
-    # Check for ALSA
-    find_package(ALSA)
-    if(ALSA_FOUND)
-        list(APPEND PLATFORM_LIBS ${ALSA_LIBRARIES})
-    endif()
-    
-    # Check for PulseAudio
-    find_package(PkgConfig)
-    if(PKG_CONFIG_FOUND)
-        pkg_check_modules(PULSEAUDIO libpulse)
-        if(PULSEAUDIO_FOUND)
-            list(APPEND PLATFORM_LIBS ${PULSEAUDIO_LIBRARIES})
-        endif()
-    endif()
 endif()
 
+# Setup platform libraries
+setup_platform_libs()
+
+# Check if whisper.cpp is available
+set(WHISPER_DIR "${CMAKE_SOURCE_DIR}/whisper.cpp")
+set(WHISPER_BUILD_DIR "${WHISPER_DIR}/build")
+
+if(NOT EXISTS "${WHISPER_DIR}/CMakeLists.txt")
+    message(FATAL_ERROR "whisper.cpp not found. Build failed.")
+endif()
+
+# Create platform library
+add_library(platform STATIC)
+
+# Platform library sources
 if(APPLE)
-    if(NOT APPLICATION_SERVICES_FRAMEWORK)
-        message(FATAL_ERROR "ApplicationServices framework not found")
-    endif()
-
-    if(NOT APPKIT_FRAMEWORK)
-        message(FATAL_ERROR "AppKit framework not found")
-    endif()
-
-    if(NOT COREFOUNDATION_FRAMEWORK)
-        message(FATAL_ERROR "CoreFoundation framework not found")
-    endif()
-    
-    if(NOT COREAUDIO_FRAMEWORK)
-        message(FATAL_ERROR "CoreAudio framework not found")
-    endif()
-endif()
-
-# Check if whisper.cpp exists
-set(WHISPER_DIR "${CMAKE_CURRENT_SOURCE_DIR}/whisper.cpp")
-if(CMAKE_CROSSCOMPILING AND CMAKE_SYSTEM_NAME STREQUAL "Windows")
-    # For cross-compilation to Windows, use a different build directory
-    set(WHISPER_BUILD_DIR "${WHISPER_DIR}/build-windows")
-else()
-    set(WHISPER_BUILD_DIR "${WHISPER_DIR}/build")
-endif()
-
-# Check if whisper.cpp directory exists
-if(EXISTS "${WHISPER_DIR}/CMakeLists.txt")
-    message(STATUS "Found whisper.cpp at ${WHISPER_DIR}")
-    set(WHISPER_AVAILABLE TRUE)
-else()
-    message(WARNING "whisper.cpp not found. Clone it first or build without transcription support.")
-    set(WHISPER_AVAILABLE FALSE)
-endif()
-
-# Common audio sources
-set(AUDIO_SOURCES src/audio.c)
-if(APPLE)
-    list(APPEND AUDIO_SOURCES src/mac/audio_permissions.m)
+    target_sources(platform PRIVATE
+        src/mac/logging.m
+        src/mac/clipboard.m
+        src/mac/overlay.m
+        src/mac/dialog.m
+        src/mac/menu.m
+        src/mac/keylogger.c
+        src/mac/app.m
+        src/mac/utils.m
+    )
+    target_link_libraries(platform PUBLIC ${PLATFORM_FRAMEWORKS})
 elseif(WIN32)
-    # Windows doesn't need special audio permissions
+    target_sources(platform PRIVATE
+        src/windows/logging.c
+        src/windows/clipboard.c
+        src/windows/overlay.c
+        src/windows/dialog.c
+        src/windows/menu.c
+        src/windows/keylogger.c
+        src/windows/app.c
+        src/windows/utils.c
+    )
+    target_link_libraries(platform PUBLIC ${PLATFORM_LIBS})
+    if(HAS_VULKAN)
+        target_link_libraries(platform PUBLIC ${VULKAN_LIB})
+    endif()
 endif()
 
-# Common core sources
-set(CORE_SOURCES 
-    src/yakety_core.c
+# Include directories for platform library
+target_include_directories(platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# Business logic sources
+set(BUSINESS_SOURCES
+    src/audio.c
+    src/transcription.cpp
 )
 
-# Platform abstraction sources
-if(APPLE)
-    set(PLATFORM_SOURCES src/mac/platform_mac.m)
-elseif(WIN32)
-    set(PLATFORM_SOURCES src/windows/platform_windows.c)
-endif()
-
-# Source files for yakety CLI
-if(APPLE)
-    set(YAKETY_SOURCES
-        src/mac/main.m
-        src/keylogger.c
-        ${AUDIO_SOURCES}
-        ${CORE_SOURCES}
-        ${PLATFORM_SOURCES}
-        src/mac/overlay.m
-    )
-elseif(WIN32)
-    set(YAKETY_SOURCES
-        src/windows/main.c
-        src/windows/keylogger.c
-        ${AUDIO_SOURCES}
-        ${CORE_SOURCES}
-        ${PLATFORM_SOURCES}
-        src/windows/overlay.c
-        src/windows/clipboard.c
-    )
-    # Add Windows resource file if it exists
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/yakety.rc")
-        list(APPEND YAKETY_SOURCES src/windows/yakety.rc)
-    endif()
-endif()
-
-# Add transcription sources
-list(APPEND YAKETY_SOURCES src/transcription.cpp)
-
-# Ensure C files are compiled as C on Windows
-if(WIN32)
-    set_source_files_properties(
-        src/windows/main.c
-        src/windows/keylogger.c
-        src/windows/overlay.c
-        src/windows/clipboard.c
-        src/windows/platform_windows.c
-        src/audio.c
-        src/yakety_core.c
-        PROPERTIES LANGUAGE C
-    )
-endif()
-
-# Source files for yakety app
-if(APPLE)
-    set(YAKETY_APP_SOURCES
-        src/mac/main_app.m
-        src/keylogger.c
-        ${AUDIO_SOURCES}
-        ${CORE_SOURCES}
-        ${PLATFORM_SOURCES}
-        src/mac/overlay.m
-        src/mac/menubar.m
-    )
-elseif(WIN32)
-    set(YAKETY_APP_SOURCES
-        src/windows/main_app.c
-        src/windows/keylogger.c
-        ${AUDIO_SOURCES}
-        ${CORE_SOURCES}
-        ${PLATFORM_SOURCES}
-        src/windows/overlay.c
-        src/windows/clipboard.c
-        src/windows/menubar.c
-    )
-    # Add Windows resource file if it exists
-    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/yakety.rc")
-        list(APPEND YAKETY_APP_SOURCES src/windows/yakety.rc)
-    endif()
-endif()
-
-# Add transcription sources
-list(APPEND YAKETY_APP_SOURCES src/transcription.cpp)
-
-# Ensure C files are compiled as C on Windows for app target
-if(WIN32)
-    set_source_files_properties(
-        src/windows/main_app.c
-        src/windows/keylogger.c
-        src/windows/overlay.c
-        src/windows/clipboard.c
-        src/windows/menubar.c
-        src/windows/platform_windows.c
-        src/audio.c
-        src/yakety_core.c
-        PROPERTIES LANGUAGE C
-    )
-endif()
-
-# Source files for recorder
-set(RECORDER_SOURCES
-    src/recorder.c
-    ${AUDIO_SOURCES}
+# Create yakety CLI executable
+add_executable(yakety
+    src/main.c
+    ${BUSINESS_SOURCES}
 )
-
-# Create the yakety CLI executable
-add_executable(yakety ${YAKETY_SOURCES})
+target_link_libraries(yakety PRIVATE platform)
 target_include_directories(yakety PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Create the yakety app executable
+# Create yakety-app executable
 if(WIN32)
     # Windows GUI app (no console window)
-    add_executable(yakety-app WIN32 ${YAKETY_APP_SOURCES})
+    add_executable(yakety-app WIN32
+        src/main.c
+        ${BUSINESS_SOURCES}
+    )
+    
+    # Add Windows resource file if it exists
+    if(EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/yakety.rc")
+        target_sources(yakety-app PRIVATE src/windows/yakety.rc)
+    endif()
 elseif(APPLE)
     # macOS app bundle
-    add_executable(yakety-app MACOSX_BUNDLE ${YAKETY_APP_SOURCES})
+    add_executable(yakety-app MACOSX_BUNDLE
+        src/main.c
+        ${BUSINESS_SOURCES}
+    )
     
     # Set bundle properties
     set_target_properties(yakety-app PROPERTIES
-        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/Info.plist
+        MACOSX_BUNDLE_INFO_PLIST ${CMAKE_CURRENT_SOURCE_DIR}/src/mac/Info.plist
         MACOSX_BUNDLE_BUNDLE_NAME "Yakety"
-        MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
-        MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+        MACOSX_BUNDLE_BUNDLE_VERSION "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_SHORT_VERSION_STRING "${PROJECT_VERSION}"
+        MACOSX_BUNDLE_GUI_IDENTIFIER "com.yakety.app"
     )
     
     # Copy resources to bundle
@@ -254,287 +142,149 @@ elseif(APPLE)
     if(EXISTS ${WHISPER_MODEL})
         set_source_files_properties(${WHISPER_MODEL} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources/models")
         target_sources(yakety-app PRIVATE ${WHISPER_MODEL})
-        message(STATUS "Including Whisper model in app bundle")
-    else()
-        message(WARNING "Whisper model not found at ${WHISPER_MODEL}")
     endif()
+    
+    # Code sign the app
+    setup_code_signing(yakety-app)
 else()
-    add_executable(yakety-app ${YAKETY_APP_SOURCES})
+    add_executable(yakety-app
+        src/main.c
+        ${BUSINESS_SOURCES}
+    )
 endif()
-target_include_directories(yakety-app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Create the recorder executable
-add_executable(recorder ${RECORDER_SOURCES})
+target_link_libraries(yakety-app PRIVATE platform)
+target_include_directories(yakety-app PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_compile_definitions(yakety-app PRIVATE YAKETY_TRAY_APP)
+
+# Create recorder executable
+add_executable(recorder src/recorder.c src/audio.c)
 target_include_directories(recorder PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
-# Create the test transcription executable
-add_executable(test_transcription src/test_transcription.c ${PLATFORM_SOURCES})
+# Create test_transcription executable
+add_executable(test_transcription src/test_transcription.c ${BUSINESS_SOURCES})
+target_link_libraries(test_transcription PRIVATE platform)
 target_include_directories(test_transcription PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
-if(WHISPER_AVAILABLE)
-    target_sources(test_transcription PRIVATE src/transcription.cpp)
-    target_compile_definitions(test_transcription PRIVATE WHISPER_AVAILABLE)
-endif()
-
-# Link frameworks for yakety CLI
-if(APPLE)
-    target_link_libraries(yakety
-        ${APPLICATION_SERVICES_FRAMEWORK}
-        ${APPKIT_FRAMEWORK}
-        ${COREFOUNDATION_FRAMEWORK}
-        ${COREAUDIO_FRAMEWORK}
-        ${AUDIOTOOLBOX_FRAMEWORK}
-        ${AVFOUNDATION_FRAMEWORK}
-    )
-else()
-    target_link_libraries(yakety ${PLATFORM_LIBS})
-endif()
-
-# Link frameworks for yakety app
-if(APPLE)
-    target_link_libraries(yakety-app
-        ${APPLICATION_SERVICES_FRAMEWORK}
-        ${APPKIT_FRAMEWORK}
-        ${COREFOUNDATION_FRAMEWORK}
-        ${FOUNDATION_FRAMEWORK}
-        ${COREAUDIO_FRAMEWORK}
-        ${AUDIOTOOLBOX_FRAMEWORK}
-        ${AVFOUNDATION_FRAMEWORK}
-    )
-else()
-    target_link_libraries(yakety-app ${PLATFORM_LIBS})
-endif()
-
-# Link whisper.cpp - required for app to work (except when cross-compiling)
-if(NOT WHISPER_AVAILABLE AND NOT CMAKE_CROSSCOMPILING)
-    message(FATAL_ERROR "whisper.cpp library not found. Run ./build.sh to build whisper.cpp first.")
-endif()
-
-# Add whisper.cpp only if available
-if(WHISPER_AVAILABLE)
-    # Use pre-built static libraries approach for all platforms
-    # This avoids issues with whisper.cpp's CMake overriding our settings
-    
-    # Find the static libraries
-    if(WIN32)
-        # Windows uses Release/Debug subdirectories
-        find_library(WHISPER_LIBRARY
-            NAMES whisper
-            PATHS ${WHISPER_BUILD_DIR}/src/Release ${WHISPER_BUILD_DIR}/src
-            NO_DEFAULT_PATH
-        )
-        find_library(GGML_LIBRARY
-            NAMES ggml
-            PATHS ${WHISPER_BUILD_DIR}/ggml/src/Release ${WHISPER_BUILD_DIR}/ggml/src
-            NO_DEFAULT_PATH
-        )
-        find_library(GGML_BASE_LIBRARY
-            NAMES ggml-base
-            PATHS ${WHISPER_BUILD_DIR}/ggml/src/Release ${WHISPER_BUILD_DIR}/ggml/src
-            NO_DEFAULT_PATH
-        )
-        find_library(GGML_CPU_LIBRARY
-            NAMES ggml-cpu
-            PATHS ${WHISPER_BUILD_DIR}/ggml/src/Release ${WHISPER_BUILD_DIR}/ggml/src
-            NO_DEFAULT_PATH
-        )
-        # Check if whisper.cpp was built with Vulkan
-        if(DEFINED ENV{VULKAN_SDK})
-            find_library(GGML_VULKAN_LIBRARY
-                NAMES ggml-vulkan
-                PATHS ${WHISPER_BUILD_DIR}/ggml/src/ggml-vulkan/Release ${WHISPER_BUILD_DIR}/ggml/src/ggml-vulkan
-                NO_DEFAULT_PATH
-            )
-            if(GGML_VULKAN_LIBRARY)
-                message(STATUS "Found ggml-vulkan library: ${GGML_VULKAN_LIBRARY}")
-            endif()
-        endif()
-    else()
-        # macOS/Linux don't use Release subdirectory
-        find_library(WHISPER_LIBRARY
-            NAMES whisper
-            PATHS ${WHISPER_BUILD_DIR}/src
-            NO_DEFAULT_PATH
-        )
-        find_library(GGML_LIBRARY
-            NAMES ggml
-            PATHS ${WHISPER_BUILD_DIR}/ggml/src
-            NO_DEFAULT_PATH
-        )
-        find_library(GGML_BASE_LIBRARY
-            NAMES ggml-base
-            PATHS ${WHISPER_BUILD_DIR}/ggml/src
-            NO_DEFAULT_PATH
-        )
-        find_library(GGML_CPU_LIBRARY
-            NAMES ggml-cpu
-            PATHS ${WHISPER_BUILD_DIR}/ggml/src
-            NO_DEFAULT_PATH
-        )
-        
-        # On macOS, also look for Metal and BLAS libraries
-        if(APPLE)
-            find_library(GGML_METAL_LIBRARY
-                NAMES ggml-metal
-                PATHS ${WHISPER_BUILD_DIR}/ggml/src/ggml-metal
-                NO_DEFAULT_PATH
-            )
-            find_library(GGML_BLAS_LIBRARY
-                NAMES ggml-blas
-                PATHS ${WHISPER_BUILD_DIR}/ggml/src/ggml-blas
-                NO_DEFAULT_PATH
-            )
-        endif()
-    endif()
-    
-    # Create imported targets
-    add_library(whisper STATIC IMPORTED)
-    set_target_properties(whisper PROPERTIES
-        IMPORTED_LOCATION ${WHISPER_LIBRARY}
-        INTERFACE_INCLUDE_DIRECTORIES "${WHISPER_DIR};${WHISPER_DIR}/include"
-    )
-    
-    # Link the libraries
-    set(WHISPER_LIBS ${WHISPER_LIBRARY} ${GGML_LIBRARY} ${GGML_CPU_LIBRARY} ${GGML_BASE_LIBRARY})
-    if(APPLE)
-        if(GGML_METAL_LIBRARY)
-            list(APPEND WHISPER_LIBS ${GGML_METAL_LIBRARY})
-        endif()
-        if(GGML_BLAS_LIBRARY)
-            list(APPEND WHISPER_LIBS ${GGML_BLAS_LIBRARY})
-        endif()
-    endif()
-    if(WIN32 AND GGML_VULKAN_LIBRARY)
-        list(APPEND WHISPER_LIBS ${GGML_VULKAN_LIBRARY})
-        message(STATUS "Adding ggml-vulkan to whisper libs")
-    endif()
-    
-    target_link_libraries(yakety ${WHISPER_LIBS})
-    target_link_libraries(yakety-app ${WHISPER_LIBS})
-    target_include_directories(yakety PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
-    target_include_directories(yakety-app PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
-    
-    # Add compile definition to enable whisper code
-    target_compile_definitions(yakety PRIVATE WHISPER_AVAILABLE)
-    target_compile_definitions(yakety-app PRIVATE WHISPER_AVAILABLE)
-else()
-    message(WARNING "Building without whisper.cpp support")
-endif()
-
-# Link Metal framework for GPU acceleration (macOS only)
-if(APPLE AND NOT CMAKE_CROSSCOMPILING)
-    find_library(METAL_FRAMEWORK Metal)
-    find_library(METALKIT_FRAMEWORK MetalKit)
-    find_library(METALPERFORMANCE_FRAMEWORK MetalPerformanceShaders)
-    find_library(ACCELERATE_FRAMEWORK Accelerate)
-    
-    if(METAL_FRAMEWORK AND METALKIT_FRAMEWORK AND METALPERFORMANCE_FRAMEWORK AND WHISPER_AVAILABLE)
-        target_link_libraries(yakety
-            ${METAL_FRAMEWORK}
-            ${METALKIT_FRAMEWORK}
-            ${METALPERFORMANCE_FRAMEWORK}
-            ${ACCELERATE_FRAMEWORK}
-            ${FOUNDATION_FRAMEWORK}
-        )
-        target_link_libraries(yakety-app
-            ${METAL_FRAMEWORK}
-            ${METALKIT_FRAMEWORK}
-            ${METALPERFORMANCE_FRAMEWORK}
-            ${ACCELERATE_FRAMEWORK}
-            ${FOUNDATION_FRAMEWORK}
-        )
-        message(STATUS "Linked Metal frameworks for GPU acceleration")
-    endif()
-endif()
 
 # Link frameworks for recorder
 if(APPLE)
-    target_link_libraries(recorder
-        ${APPKIT_FRAMEWORK}
-        ${COREFOUNDATION_FRAMEWORK}
-        ${COREAUDIO_FRAMEWORK}
-        ${AUDIOTOOLBOX_FRAMEWORK}
-        ${AVFOUNDATION_FRAMEWORK}
-    )
-else()
+    target_link_libraries(recorder ${PLATFORM_FRAMEWORKS})
+elseif(WIN32)
     target_link_libraries(recorder ${PLATFORM_LIBS})
 endif()
 
-# Link frameworks for test_transcription
-if(APPLE)
-    target_link_libraries(test_transcription
-        ${COREFOUNDATION_FRAMEWORK}
-        ${APPKIT_FRAMEWORK}
-        ${APPLICATION_SERVICES_FRAMEWORK}
-    )
+# Find and link whisper.cpp libraries
+if(WIN32)
+    # Windows uses Release subdirectory
+    set(WHISPER_LIB_DIR "${WHISPER_BUILD_DIR}/src/Release")
+    set(GGML_LIB_DIR "${WHISPER_BUILD_DIR}/ggml/src/Release")
 else()
-    target_link_libraries(test_transcription ${PLATFORM_LIBS})
+    set(WHISPER_LIB_DIR "${WHISPER_BUILD_DIR}/src")
+    set(GGML_LIB_DIR "${WHISPER_BUILD_DIR}/ggml/src")
 endif()
 
-# Link whisper.cpp to test_transcription if available
-if(WHISPER_AVAILABLE)
-    target_link_libraries(test_transcription ${WHISPER_LIBS})
-    target_include_directories(test_transcription PRIVATE ${WHISPER_DIR} ${WHISPER_DIR}/include ${WHISPER_DIR}/ggml/include)
-    
-    # Link Metal frameworks for test_transcription
-    if(APPLE AND METAL_FRAMEWORK AND METALKIT_FRAMEWORK AND METALPERFORMANCE_FRAMEWORK)
-        target_link_libraries(test_transcription
-            ${METAL_FRAMEWORK}
-            ${METALKIT_FRAMEWORK}
-            ${METALPERFORMANCE_FRAMEWORK}
-            ${ACCELERATE_FRAMEWORK}
-            ${FOUNDATION_FRAMEWORK}
-        )
+find_library(WHISPER_LIBRARY NAMES whisper PATHS ${WHISPER_LIB_DIR} NO_DEFAULT_PATH REQUIRED)
+find_library(GGML_LIBRARY NAMES ggml PATHS ${GGML_LIB_DIR} NO_DEFAULT_PATH REQUIRED)
+find_library(GGML_BASE_LIBRARY NAMES ggml-base PATHS ${GGML_LIB_DIR} NO_DEFAULT_PATH REQUIRED)
+find_library(GGML_CPU_LIBRARY NAMES ggml-cpu PATHS ${GGML_LIB_DIR} NO_DEFAULT_PATH REQUIRED)
+
+set(WHISPER_LIBS ${WHISPER_LIBRARY} ${GGML_LIBRARY} ${GGML_CPU_LIBRARY} ${GGML_BASE_LIBRARY})
+
+# Platform-specific whisper libraries
+if(APPLE)
+    find_library(GGML_METAL_LIBRARY NAMES ggml-metal PATHS "${GGML_LIB_DIR}/ggml-metal" NO_DEFAULT_PATH)
+    if(GGML_METAL_LIBRARY)
+        list(APPEND WHISPER_LIBS ${GGML_METAL_LIBRARY})
+    endif()
+    find_library(GGML_BLAS_LIBRARY NAMES ggml-blas PATHS "${GGML_LIB_DIR}/ggml-blas" NO_DEFAULT_PATH)
+    if(GGML_BLAS_LIBRARY)
+        list(APPEND WHISPER_LIBS ${GGML_BLAS_LIBRARY})
+    endif()
+elseif(WIN32 AND HAS_VULKAN)
+    find_library(GGML_VULKAN_LIBRARY NAMES ggml-vulkan PATHS "${GGML_LIB_DIR}/ggml-vulkan" NO_DEFAULT_PATH)
+    if(GGML_VULKAN_LIBRARY)
+        list(APPEND WHISPER_LIBS ${GGML_VULKAN_LIBRARY})
     endif()
 endif()
 
-# Set output directory for all executables and DLLs to the same location
+# Link whisper to all targets that need it
+foreach(target yakety yakety-app test_transcription)
+    target_link_libraries(${target} PRIVATE ${WHISPER_LIBS})
+    target_include_directories(${target} PRIVATE 
+        ${WHISPER_DIR} 
+        ${WHISPER_DIR}/include 
+        ${WHISPER_DIR}/ggml/include
+    )
+    target_compile_definitions(${target} PRIVATE WHISPER_AVAILABLE)
+endforeach()
+
+# Link Metal frameworks for macOS
+if(APPLE AND METAL_FRAMEWORKS)
+    foreach(target yakety yakety-app test_transcription)
+        target_link_libraries(${target} PRIVATE ${METAL_FRAMEWORKS})
+    endforeach()
+endif()
+
+# Set output directory
 set_target_properties(yakety yakety-app recorder test_transcription PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin
 )
 
-# Copy whisper model to output directory if it exists
+# Copy whisper model to output directory for CLI tools
 set(MODEL_FILE "${WHISPER_DIR}/models/ggml-base.en.bin")
 if(EXISTS ${MODEL_FILE})
-    # Create models directory in output
     add_custom_command(TARGET yakety POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:yakety>/models"
         COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MODEL_FILE}" "$<TARGET_FILE_DIR:yakety>/models/ggml-base.en.bin"
         COMMENT "Copying Whisper model to output directory"
     )
-    add_custom_command(TARGET yakety-app POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:yakety-app>/models"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MODEL_FILE}" "$<TARGET_FILE_DIR:yakety-app>/models/ggml-base.en.bin"
-        COMMENT "Copying Whisper model to output directory"
-    )
-else()
-    message(WARNING "Whisper model not found at ${MODEL_FILE}")
 endif()
 
 # Compiler flags
 if(NOT WIN32)
-    target_compile_options(yakety PRIVATE
+    # Base warning flags
+    set(WARNING_FLAGS
         -Wall
         -Wextra
         -Werror
         -Wno-error=unused-parameter
         -Wno-error=unused-function
     )
-
-    target_compile_options(yakety-app PRIVATE
-        -Wall
-        -Wextra
-        -Werror
-        -Wno-error=unused-parameter
-        -Wno-error=unused-function
-    )
-
-    target_compile_options(recorder PRIVATE
-        -Wall
-        -Wextra
-        -Werror
-        -Wno-error=unused-parameter
-        -Wno-error=unused-function
-    )
+    
+    # Debug-specific flags
+    if(CMAKE_BUILD_TYPE STREQUAL "Debug")
+        list(APPEND WARNING_FLAGS
+            -g
+            -O0
+            -fno-omit-frame-pointer
+            -fsanitize=address
+            -fsanitize=undefined
+        )
+        # Add sanitizer libraries for linking
+        foreach(target yakety yakety-app recorder test_transcription)
+            target_link_options(${target} PRIVATE -fsanitize=address -fsanitize=undefined)
+        endforeach()
+    endif()
+    
+    # Apply flags to all targets
+    foreach(target yakety yakety-app recorder test_transcription)
+        target_compile_options(${target} PRIVATE ${WARNING_FLAGS})
+    endforeach()
 endif()
+
+# Print build summary
+message(STATUS "")
+message(STATUS "=== Yakety Build Configuration ===")
+message(STATUS "Platform: ${CMAKE_SYSTEM_NAME}")
+message(STATUS "Build type: ${CMAKE_BUILD_TYPE}")
+message(STATUS "Whisper.cpp: ${WHISPER_DIR}")
+if(APPLE)
+    message(STATUS "Metal acceleration: ${GGML_METAL_LIBRARY}")
+elseif(WIN32 AND HAS_VULKAN)
+    message(STATUS "Vulkan acceleration: ${GGML_VULKAN_LIBRARY}")
+endif()
+message(STATUS "Output directory: ${CMAKE_BINARY_DIR}/bin")
+message(STATUS "=================================")
+message(STATUS "")
