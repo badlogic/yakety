@@ -52,6 +52,9 @@ int app_init(const AppConfig* config) {
     if (config->is_console) {
         [NSApp setActivationPolicy:NSApplicationActivationPolicyProhibited];
         
+        // For console apps, finish launching to ensure proper initialization
+        [NSApp finishLaunching];
+        
         // For console apps, call on_ready immediately after init
         if (g_config.on_ready) {
             // Schedule on_ready to run on the next iteration of the run loop

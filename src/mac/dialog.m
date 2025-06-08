@@ -1,6 +1,5 @@
 #import <Cocoa/Cocoa.h>
 #include "../dialog.h"
-#include "../utils.h"
 
 void dialog_error(const char* title, const char* message) {
     @autoreleasepool {
@@ -8,14 +7,6 @@ void dialog_error(const char* title, const char* message) {
         [alert setMessageText:[NSString stringWithUTF8String:title]];
         [alert setInformativeText:[NSString stringWithUTF8String:message]];
         [alert setAlertStyle:NSAlertStyleCritical];
-        
-        // Set the app icon
-        NSImage* icon = (NSImage*)utils_get_app_icon();
-        if (icon) {
-            [alert setIcon:icon];
-            [icon release];
-        }
-        
         [alert runModal];
     }
 }
@@ -26,14 +17,6 @@ void dialog_info(const char* title, const char* message) {
         [alert setMessageText:[NSString stringWithUTF8String:title]];
         [alert setInformativeText:[NSString stringWithUTF8String:message]];
         [alert setAlertStyle:NSAlertStyleInformational];
-        
-        // Set the app icon
-        NSImage* icon = (NSImage*)utils_get_app_icon();
-        if (icon) {
-            [alert setIcon:icon];
-            [icon release];
-        }
-        
         [alert runModal];
     }
 }
@@ -45,14 +28,6 @@ bool dialog_confirm(const char* title, const char* message) {
         [alert setInformativeText:[NSString stringWithUTF8String:message]];
         [alert addButtonWithTitle:@"Yes"];
         [alert addButtonWithTitle:@"No"];
-        
-        // Set the app icon
-        NSImage* icon = (NSImage*)utils_get_app_icon();
-        if (icon) {
-            [alert setIcon:icon];
-            [icon release];
-        }
-        
         return [alert runModal] == NSAlertFirstButtonReturn;
     }
 }
@@ -65,13 +40,6 @@ int dialog_accessibility_permission(void) {
         [alert addButtonWithTitle:@"I've Granted Permission"];
         [alert addButtonWithTitle:@"Open System Preferences"];
         [alert addButtonWithTitle:@"Quit"];
-        
-        // Set the app icon
-        NSImage* icon = (NSImage*)utils_get_app_icon();
-        if (icon) {
-            [alert setIcon:icon];
-            [icon release];
-        }
         
         NSModalResponse response = [alert runModal];
         
@@ -92,13 +60,6 @@ bool dialog_wait_for_permission(void) {
         [alert setInformativeText:@"Please grant accessibility permission in System Preferences, then click Continue."];
         [alert addButtonWithTitle:@"Continue"];
         [alert addButtonWithTitle:@"Quit"];
-        
-        // Set the app icon
-        NSImage* icon = (NSImage*)utils_get_app_icon();
-        if (icon) {
-            [alert setIcon:icon];
-            [icon release];
-        }
         
         return [alert runModal] == NSAlertFirstButtonReturn;
     }

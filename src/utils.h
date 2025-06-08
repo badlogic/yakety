@@ -7,7 +7,6 @@ const char* utils_get_model_path(void);
 
 #ifdef __APPLE__
 void utils_open_accessibility_settings(void);
-void* utils_get_app_icon(void);
 #endif
 
 #endif // UTILS_H
