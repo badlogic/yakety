@@ -293,3 +293,79 @@ endif()
 message(STATUS "Output directory: ${CMAKE_BINARY_DIR}/bin")
 message(STATUS "=================================")
 message(STATUS "")
+
+# DMG creation for macOS
+if(APPLE)
+    set(DMG_NAME "Yakety-${PROJECT_VERSION}")
+    set(DMG_DIR "${CMAKE_BINARY_DIR}/dmg_temp")
+    
+    # Create DMG target
+    add_custom_target(dmg
+        DEPENDS yakety-app
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${DMG_DIR}
+        
+        # Copy app bundle
+        COMMAND ${CMAKE_COMMAND} -E copy_directory 
+            $<TARGET_BUNDLE_DIR:yakety-app> 
+            ${DMG_DIR}/Yakety.app
+        
+        # Create Applications symlink
+        COMMAND ${CMAKE_COMMAND} -E create_symlink 
+            /Applications 
+            ${DMG_DIR}/Applications
+        
+        # Create DMG
+        COMMAND hdiutil create 
+            -volname "Yakety" 
+            -srcfolder ${DMG_DIR} 
+            -ov 
+            -format UDZO 
+            ${CMAKE_BINARY_DIR}/${DMG_NAME}.dmg
+        
+        # Clean up
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
+        
+        # Report success
+        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created ${DMG_NAME}.dmg"
+        
+        COMMENT "Creating DMG package..."
+        VERBATIM
+    )
+    
+    # Create a nicer DMG with background (optional, requires create-dmg)
+    find_program(CREATE_DMG create-dmg)
+    if(CREATE_DMG)
+        add_custom_target(dmg-fancy
+            DEPENDS yakety-app
+            COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
+            COMMAND ${CMAKE_COMMAND} -E make_directory ${DMG_DIR}
+            
+            # Copy app bundle
+            COMMAND ${CMAKE_COMMAND} -E copy_directory 
+                $<TARGET_BUNDLE_DIR:yakety-app> 
+                ${DMG_DIR}/Yakety.app
+            
+            # Use create-dmg for a nicer DMG
+            COMMAND ${CREATE_DMG}
+                --volname "Yakety"
+                --window-pos 200 120
+                --window-size 600 400
+                --icon-size 100
+                --icon "Yakety.app" 150 200
+                --app-drop-link 450 200
+                --hdiutil-quiet
+                ${CMAKE_BINARY_DIR}/${DMG_NAME}.dmg
+                ${DMG_DIR}
+            
+            # Report success
+            COMMAND ${CMAKE_COMMAND} -E echo "✅ Created fancy ${DMG_NAME}.dmg"
+            
+            COMMENT "Creating fancy DMG package with create-dmg..."
+            VERBATIM
+        )
+        message(STATUS "Fancy DMG target available: make dmg-fancy (requires create-dmg)")
+    endif()
+    
+    message(STATUS "DMG target available: make dmg")
+endif()

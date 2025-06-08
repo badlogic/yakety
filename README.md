@@ -80,6 +80,24 @@ build/bin/
 └── test_transcription       # Transcription test tool
 ```
 
+### Creating a macOS DMG
+
+To create a distributable DMG file:
+
+```bash
+# Build the release version first
+cmake --preset=release
+cmake --build --preset=release
+
+# Create DMG
+cmake --build --preset=release --target dmg
+
+# Or if you have create-dmg installed (brew install create-dmg)
+cmake --build --preset=release --target dmg-fancy
+```
+
+The DMG will be created as `build/Yakety-1.0.0.dmg`
+
 ### Windows
 ```
 build\bin\
