@@ -23,6 +23,20 @@ if(APPLE)
 elseif(WIN32)
     # Windows libraries for miniaudio and system features
     set(PLATFORM_LIBS winmm ole32 user32 shell32 gdi32)
+    
+    # Check for Vulkan SDK
+    if(DEFINED ENV{VULKAN_SDK})
+        set(VULKAN_SDK_PATH $ENV{VULKAN_SDK})
+        find_library(VULKAN_LIBRARY 
+            NAMES vulkan-1 vulkan
+            PATHS ${VULKAN_SDK_PATH}/Lib
+            PATH_SUFFIXES "" "x64"
+        )
+        if(VULKAN_LIBRARY)
+            message(STATUS "Found Vulkan library: ${VULKAN_LIBRARY}")
+            list(APPEND PLATFORM_LIBS ${VULKAN_LIBRARY})
+        endif()
+    endif()
 elseif(UNIX)
     # Linux libraries for miniaudio
     find_package(Threads REQUIRED)
@@ -323,6 +337,17 @@ if(WHISPER_AVAILABLE)
             PATHS ${WHISPER_BUILD_DIR}/ggml/src/Release ${WHISPER_BUILD_DIR}/ggml/src
             NO_DEFAULT_PATH
         )
+        # Check if whisper.cpp was built with Vulkan
+        if(DEFINED ENV{VULKAN_SDK})
+            find_library(GGML_VULKAN_LIBRARY
+                NAMES ggml-vulkan
+                PATHS ${WHISPER_BUILD_DIR}/ggml/src/ggml-vulkan/Release ${WHISPER_BUILD_DIR}/ggml/src/ggml-vulkan
+                NO_DEFAULT_PATH
+            )
+            if(GGML_VULKAN_LIBRARY)
+                message(STATUS "Found ggml-vulkan library: ${GGML_VULKAN_LIBRARY}")
+            endif()
+        endif()
     else()
         # macOS/Linux don't use Release subdirectory
         find_library(WHISPER_LIBRARY
@@ -377,6 +402,10 @@ if(WHISPER_AVAILABLE)
         if(GGML_BLAS_LIBRARY)
             list(APPEND WHISPER_LIBS ${GGML_BLAS_LIBRARY})
         endif()
+    endif()
+    if(WIN32 AND GGML_VULKAN_LIBRARY)
+        list(APPEND WHISPER_LIBS ${GGML_VULKAN_LIBRARY})
+        message(STATUS "Adding ggml-vulkan to whisper libs")
     endif()
     
     target_link_libraries(yakety ${WHISPER_LIBS})
