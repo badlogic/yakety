@@ -466,6 +466,8 @@ if(APPLE)
         ${APPKIT_FRAMEWORK}
         ${APPLICATION_SERVICES_FRAMEWORK}
     )
+else()
+    target_link_libraries(test_transcription ${PLATFORM_LIBS})
 endif()
 
 # Link whisper.cpp to test_transcription if available
