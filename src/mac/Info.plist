@@ -27,6 +27,8 @@
     <key>NSMicrophoneUsageDescription</key>
     <string>Yakety needs access to your microphone to transcribe speech when you hold the FN key.</string>
     <key>CFBundleIconFile</key>
-    <string>yakety</string>
+    <string>yakety.icns</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
 </dict>
 </plist>
