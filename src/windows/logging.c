@@ -25,6 +25,12 @@ static const char* get_log_path(void) {
 }
 
 void log_init(void) {
+    // Set console to UTF-8 mode
+    if (GetConsoleWindow() != NULL) {
+        SetConsoleOutputCP(CP_UTF8);
+        SetConsoleCP(CP_UTF8);
+    }
+    
     // Initialize critical section
     if (!g_mutex_initialized) {
         InitializeCriticalSection(&g_log_mutex);

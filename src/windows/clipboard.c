@@ -3,6 +3,99 @@
 #include <windows.h>
 #include <string.h>
 #include <stdbool.h>
+#include <malloc.h>
+
+// Structure to hold clipboard data for a single format
+typedef struct {
+    UINT format;
+    HGLOBAL data;
+    SIZE_T size;
+} ClipboardFormat;
+
+// Array to hold all clipboard formats
+static ClipboardFormat* saved_formats = NULL;
+static int saved_format_count = 0;
+
+// Save current clipboard contents
+static void save_clipboard(void) {
+    if (!OpenClipboard(NULL)) {
+        log_error("Failed to open clipboard for saving");
+        return;
+    }
+    
+    // Count available formats
+    int format_count = CountClipboardFormats();
+    if (format_count == 0) {
+        CloseClipboard();
+        return;
+    }
+    
+    // Allocate array for formats
+    saved_formats = (ClipboardFormat*)calloc(format_count, sizeof(ClipboardFormat));
+    saved_format_count = 0;
+    
+    // Enumerate and save all formats
+    UINT format = 0;
+    while ((format = EnumClipboardFormats(format)) != 0) {
+        HANDLE hData = GetClipboardData(format);
+        if (hData) {
+            SIZE_T size = GlobalSize(hData);
+            if (size > 0) {
+                // Allocate memory for this format
+                HGLOBAL hCopy = GlobalAlloc(GMEM_MOVEABLE, size);
+                if (hCopy) {
+                    void* src = GlobalLock(hData);
+                    void* dst = GlobalLock(hCopy);
+                    if (src && dst) {
+                        memcpy(dst, src, size);
+                        
+                        saved_formats[saved_format_count].format = format;
+                        saved_formats[saved_format_count].data = hCopy;
+                        saved_formats[saved_format_count].size = size;
+                        saved_format_count++;
+                    }
+                    if (src) GlobalUnlock(hData);
+                    if (dst) GlobalUnlock(hCopy);
+                    
+                    if (!dst) {
+                        GlobalFree(hCopy);
+                    }
+                }
+            }
+        }
+    }
+    
+    CloseClipboard();
+    log_info("Saved %d clipboard formats", saved_format_count);
+}
+
+// Restore saved clipboard contents
+static void restore_clipboard(void) {
+    if (saved_format_count == 0 || !saved_formats) {
+        return;
+    }
+    
+    if (!OpenClipboard(NULL)) {
+        log_error("Failed to open clipboard for restoring");
+        return;
+    }
+    
+    EmptyClipboard();
+    
+    // Restore all saved formats
+    for (int i = 0; i < saved_format_count; i++) {
+        SetClipboardData(saved_formats[i].format, saved_formats[i].data);
+        // Note: Windows takes ownership of the data, so we don't free it
+    }
+    
+    CloseClipboard();
+    log_info("Restored %d clipboard formats", saved_format_count);
+    
+    // Clean up our array (but not the data, as Windows owns it now)
+    free(saved_formats);
+    saved_formats = NULL;
+    saved_format_count = 0;
+}
 
 void clipboard_copy(const char* text) {
     if (!text || strlen(text) == 0) {
@@ -21,8 +114,11 @@ void clipboard_copy(const char* text) {
     // Copy text to global memory
     char* pMem = (char*)GlobalLock(hMem);
     if (pMem) {
-        strcpy_s(pMem, len, text);
+        strcpy(pMem, text);
         GlobalUnlock(hMem);
+        
+        // Save current clipboard contents
+        save_clipboard();
         
         // Open clipboard and set data
         if (OpenClipboard(NULL)) {
@@ -97,6 +193,12 @@ void clipboard_paste(void) {
     UINT sent = SendInput(4, inputs, sizeof(INPUT));
     if (sent == 4) {
         log_info("Paste command sent");
+        
+        // Give a small delay for the paste to complete
+        Sleep(100);
+        
+        // Restore the original clipboard contents
+        restore_clipboard();
     } else {
         log_error("Failed to send paste command");
     }
