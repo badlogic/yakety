@@ -46,13 +46,17 @@ The build process is fully automated through CMake. It will:
 git clone https://github.com/badlogic/yakety.git
 cd yakety
 
-# Build with release settings
-cmake --preset=release
-cmake --build --preset=release
+# Build with release settings (Ninja on all platforms)
+cmake --preset release
+cmake --build --preset release
 
-# Or build with debug symbols and sanitizers
-cmake --preset=debug
-cmake --build --preset=debug
+# Or build with debug symbols (Ninja on all platforms)
+cmake --preset debug
+cmake --build --preset debug
+
+# Windows only: Build with Visual Studio for debugging
+cmake --preset vs-debug
+cmake --build --preset vs-debug
 ```
 
 ## Build Outputs
@@ -79,8 +83,8 @@ After building, you can create distributable packages:
 
 ```bash
 # Build the release version first
-cmake --preset=release
-cmake --build --preset=release
+cmake --preset release
+cmake --build --preset release
 
 # Create distribution packages for current platform
 cmake --build build --target package
@@ -126,9 +130,10 @@ open build/bin/Yakety.app
 build\bin\Yakety.exe
 ```
 
-The app will appear in your system tray/menubar. Hold the **Fn** key (macOS) or **Right Ctrl** (Windows) to record, release to transcribe and paste.
+The app will appear in your system tray/menubar. By default, hold the **Fn** key (macOS) or **Right Ctrl** (Windows) to record, release to transcribe and paste.
 
 Right-click the tray icon for options:
+- **Configure Hotkey** - Change the key combination for recording
 - **Launch at Login** - Start Yakety automatically when you log in
 - **About** - Version and license information
 - **Quit** - Exit the application
@@ -166,6 +171,10 @@ show_notifications = true
 
 # Launch at login (true/false)
 launch_at_login = false
+
+# Custom hotkey configuration (automatically saved when changed via GUI)
+hotkey_keycode = 0
+hotkey_modifiers = 8388608
 ```
 
 ### Using Custom Models

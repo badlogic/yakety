@@ -5,15 +5,34 @@
     "minor": 20,
     "patch": 0
   },
-  "vendor": {
-    "example.com/ExampleIDE/1.0": {
-      "autoFormat": true
-    }
-  },
   "configurePresets": [
     {
-      "name": "windows-base",
-      "hidden": true,
+      "name": "release",
+      "displayName": "Release",
+      "description": "Release build with Ninja",
+      "binaryDir": "${sourceDir}/build",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_BUILD_TYPE": "Release"
+      }
+    },
+    {
+      "name": "debug",
+      "displayName": "Debug",
+      "description": "Debug build with Ninja",
+      "binaryDir": "${sourceDir}/build-debug",
+      "generator": "Ninja",
+      "cacheVariables": {
+        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
+        "CMAKE_BUILD_TYPE": "Debug"
+      }
+    },
+    {
+      "name": "vs-debug",
+      "displayName": "Visual Studio Debug",
+      "description": "Debug build with Visual Studio for debugging",
+      "binaryDir": "${sourceDir}/build-vs",
       "generator": "Visual Studio 17 2022",
       "architecture": "x64",
       "condition": {
@@ -24,51 +43,26 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
-    },
-    {
-      "name": "unix-base",
-      "hidden": true,
-      "generator": "Ninja",
-      "condition": {
-        "type": "notEquals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
-      }
-    },
-    {
-      "name": "release",
-      "displayName": "Release Config",
-      "description": "Release build",
-      "binaryDir": "${sourceDir}/build",
-      "inherits": ["windows-base", "unix-base"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Release"
-      }
-    },
-    {
-      "name": "debug",
-      "displayName": "Debug Config",
-      "description": "Debug build",
-      "binaryDir": "${sourceDir}/build-debug",
-      "inherits": ["windows-base", "unix-base"],
-      "cacheVariables": {
-        "CMAKE_BUILD_TYPE": "Debug"
-      }
     }
   ],
   "buildPresets": [
     {
       "name": "release",
-      "configurePreset": "release",
-      "configuration": "Release"
+      "configurePreset": "release"
     },
     {
       "name": "debug",
-      "configurePreset": "debug",
-      "configuration": "Debug"
+      "configurePreset": "debug"
+    },
+    {
+      "name": "vs-debug",
+      "configurePreset": "vs-debug",
+      "configuration": "Debug",
+      "condition": {
+        "type": "equals",
+        "lhs": "${hostSystemName}",
+        "rhs": "Windows"
+      }
     }
   ]
 }

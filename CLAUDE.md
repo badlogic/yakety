@@ -10,7 +10,10 @@
 
 - ALWAYS USE rg NOT GREP
 
-- Always use the CMake debug preset to build
+# CMake Build Presets
 
-- On Windows, CMake now automatically detects Visual Studio 2022 using the VS generator
-  No need to set up environment variables!
+- **Normal development**: Use `cmake --preset release` or `cmake --preset debug` 
+  - Uses Ninja generator on all platforms for fast builds
+- **Windows debugging**: Use `cmake --preset vs-debug` when you need Visual Studio for debugging
+  - Uses Visual Studio 2022 generator with proper debugging support
+  - Only available on Windows
