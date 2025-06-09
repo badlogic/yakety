@@ -670,9 +670,39 @@ static LRESULT CALLBACK KeyCaptureProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                 
                 // If all modifiers released, capture the combination
                 if (data->current_modifiers == 0 && data->pressed_modifiers != 0) {
-                    // Store the captured modifier combination
-                    data->result->keycode = 0;  // No main key, just modifiers
-                    data->result->modifier_flags = data->pressed_modifiers;
+                    // Check if this is a single modifier key
+                    bool is_single_modifier = false;
+                    uint16_t single_key = 0;
+                    
+                    // Check for single modifier patterns
+                    if (data->pressed_modifiers == 0x0001 && data->last_keycode != 0) {
+                        // Single Ctrl key
+                        is_single_modifier = true;
+                        single_key = data->last_keycode;
+                    } else if (data->pressed_modifiers == 0x0002 && data->last_keycode != 0) {
+                        // Single Alt key
+                        is_single_modifier = true;
+                        single_key = data->last_keycode;
+                    } else if (data->pressed_modifiers == 0x0004 && data->last_keycode != 0) {
+                        // Single Shift key
+                        is_single_modifier = true;
+                        single_key = data->last_keycode;
+                    } else if (data->pressed_modifiers == 0x0008 && data->last_keycode != 0) {
+                        // Single Win key
+                        is_single_modifier = true;
+                        single_key = data->last_keycode;
+                    }
+                    
+                    if (is_single_modifier) {
+                        // Store as single key with no modifiers
+                        data->result->keycode = single_key;
+                        data->result->modifier_flags = 0;
+                    } else {
+                        // Store as modifier combination
+                        data->result->keycode = 0;
+                        data->result->modifier_flags = data->pressed_modifiers;
+                    }
+                    
                     data->capturing = false;
                     data->captured = true;
                     EnableWindow(GetDlgItem(hwnd, ID_BUTTON_OK), TRUE);

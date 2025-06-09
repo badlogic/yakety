@@ -78,11 +78,36 @@ static bool matches_combination(DWORD vkCode, bool keyDown) {
     
     update_modifiers();
     
-    // Check modifier-only combinations (deprecated path, shouldn't be used anymore)
+    // Check modifier-only combinations
     if (g_target_combo.keycode == 0) {
-        // For modifier-only, we need to check on key release
-        if (!keyDown) {
-            // Check if the released key is one of our target modifiers
+        // Check if current modifiers match the target
+        if (g_current_modifiers == g_target_combo.modifier_flags && g_current_modifiers != 0) {
+            // All required modifiers are pressed
+            if (keyDown) {
+                // Check if this is a modifier key
+                bool is_modifier = (vkCode == VK_CONTROL || vkCode == VK_LCONTROL || vkCode == VK_RCONTROL ||
+                                    vkCode == VK_MENU || vkCode == VK_LMENU || vkCode == VK_RMENU ||
+                                    vkCode == VK_SHIFT || vkCode == VK_LSHIFT || vkCode == VK_RSHIFT ||
+                                    vkCode == VK_LWIN || vkCode == VK_RWIN);
+                
+                if (is_modifier && !g_combo_pressed) {
+                    // All modifiers are now pressed - trigger press
+                    g_combo_pressed = true;
+                    if (g_on_press) {
+                        g_on_press(g_userdata);
+                    }
+                } else if (!is_modifier) {
+                    // Non-modifier key pressed while modifiers held, not our combo
+                    if (g_combo_pressed) {
+                        g_combo_pressed = false;
+                        if (g_on_release) {
+                            g_on_release(g_userdata);
+                        }
+                    }
+                }
+            }
+        } else if (g_combo_pressed && !keyDown) {
+            // Check if we're releasing one of the required modifiers
             bool is_target_modifier = false;
             if ((g_target_combo.modifier_flags & 0x0001) && 
                 (vkCode == VK_CONTROL || vkCode == VK_LCONTROL || vkCode == VK_RCONTROL)) {
@@ -98,23 +123,12 @@ static bool matches_combination(DWORD vkCode, bool keyDown) {
                 is_target_modifier = true;
             }
             
-            // If this is a target modifier being released and no other keys are pressed
-            if (is_target_modifier && g_tracking_modifier_only) {
-                g_tracking_modifier_only = false;
-                return true;
-            }
-        } else if (keyDown) {
-            // On key down, check if we should start tracking modifier-only
-            bool is_modifier = (vkCode == VK_CONTROL || vkCode == VK_LCONTROL || vkCode == VK_RCONTROL ||
-                                vkCode == VK_MENU || vkCode == VK_LMENU || vkCode == VK_RMENU ||
-                                vkCode == VK_SHIFT || vkCode == VK_LSHIFT || vkCode == VK_RSHIFT ||
-                                vkCode == VK_LWIN || vkCode == VK_RWIN);
-            
-            if (is_modifier && g_current_modifiers == g_target_combo.modifier_flags) {
-                g_tracking_modifier_only = true;
-            } else if (!is_modifier) {
-                // Non-modifier key pressed, cancel modifier-only tracking
-                g_tracking_modifier_only = false;
+            if (is_target_modifier) {
+                // One of our modifiers is being released - trigger release
+                g_combo_pressed = false;
+                if (g_on_release) {
+                    g_on_release(g_userdata);
+                }
             }
         }
         return false;
@@ -159,22 +173,25 @@ LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
         }
         */
         
-        if (matches_combination(vkCode, keyDown)) {
-            if (keyDown && !g_combo_pressed) {
-                g_combo_pressed = true;
-                if (g_on_press) {
-                    g_on_press(g_userdata);
+        // For modifier-only combinations, matches_combination handles the callbacks
+        if (g_target_combo.keycode == 0) {
+            matches_combination(vkCode, keyDown);
+        } else {
+            // For regular key combinations
+            if (matches_combination(vkCode, keyDown)) {
+                if (keyDown && !g_combo_pressed) {
+                    g_combo_pressed = true;
+                    if (g_on_press) {
+                        g_on_press(g_userdata);
+                    }
+                } else if (keyUp && g_combo_pressed) {
+                    g_combo_pressed = false;
+                    if (g_on_release) {
+                        g_on_release(g_userdata);
+                    }
                 }
             } else if (keyUp && g_combo_pressed) {
-                g_combo_pressed = false;
-                if (g_on_release) {
-                    g_on_release(g_userdata);
-                }
-            }
-        } else if (keyUp && g_combo_pressed) {
-            // Key combination broken (modifier released while key still held)
-            if (g_target_combo.keycode != 0) {
-                // Only for non-modifier-only combinations
+                // Key combination broken (modifier released while key still held)
                 g_combo_pressed = false;
                 if (g_on_release) {
                     g_on_release(g_userdata);
