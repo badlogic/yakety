@@ -39,7 +39,41 @@ static bool matches_combination(DWORD vkCode, bool keyDown) {
     // Special case: Single modifier keys without additional modifiers
     if (g_target_combo.modifier_flags == 0 && g_target_combo.keycode != 0) {
         // Direct key match for single modifier keys
-        return (vkCode == g_target_combo.keycode);
+        if (vkCode == g_target_combo.keycode) {
+            return true;
+        }
+        
+        // Handle generic VK_CONTROL matching specific L/R versions
+        if (g_target_combo.keycode == VK_CONTROL && 
+            (vkCode == VK_LCONTROL || vkCode == VK_RCONTROL)) {
+            return true;
+        }
+        if ((g_target_combo.keycode == VK_LCONTROL || g_target_combo.keycode == VK_RCONTROL) &&
+            vkCode == VK_CONTROL) {
+            return true;
+        }
+        
+        // Handle generic VK_MENU matching specific L/R versions
+        if (g_target_combo.keycode == VK_MENU && 
+            (vkCode == VK_LMENU || vkCode == VK_RMENU)) {
+            return true;
+        }
+        if ((g_target_combo.keycode == VK_LMENU || g_target_combo.keycode == VK_RMENU) &&
+            vkCode == VK_MENU) {
+            return true;
+        }
+        
+        // Handle generic VK_SHIFT matching specific L/R versions
+        if (g_target_combo.keycode == VK_SHIFT && 
+            (vkCode == VK_LSHIFT || vkCode == VK_RSHIFT)) {
+            return true;
+        }
+        if ((g_target_combo.keycode == VK_LSHIFT || g_target_combo.keycode == VK_RSHIFT) &&
+            vkCode == VK_SHIFT) {
+            return true;
+        }
+        
+        return false;
     }
     
     update_modifiers();
@@ -113,7 +147,8 @@ LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
             vkCode = (kbdStruct->scanCode == 0x36) ? VK_RSHIFT : VK_LSHIFT;
         }
         
-        // Debug log for modifier keys
+        // Debug log for modifier keys (commented out for production)
+        /*
         if (keyDown && (origVkCode == VK_CONTROL || origVkCode == VK_MENU || origVkCode == VK_SHIFT ||
                         vkCode == VK_LCONTROL || vkCode == VK_RCONTROL || 
                         vkCode == VK_LMENU || vkCode == VK_RMENU ||
@@ -122,6 +157,7 @@ LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
                      origVkCode, vkCode, (kbdStruct->flags & LLKHF_EXTENDED) ? 1 : 0, 
                      kbdStruct->scanCode, g_target_combo.keycode);
         }
+        */
         
         if (matches_combination(vkCode, keyDown)) {
             if (keyDown && !g_combo_pressed) {

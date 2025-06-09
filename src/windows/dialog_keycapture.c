@@ -551,6 +551,30 @@ static LRESULT CALLBACK KeyCaptureProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         if (data->capturing) {
             UINT vk = (UINT)wParam;
             
+            // Convert generic modifier keys to specific L/R versions
+            if (vk == VK_CONTROL) {
+                // Check which control key is actually pressed
+                if (GetAsyncKeyState(VK_LCONTROL) & 0x8000) {
+                    vk = VK_LCONTROL;
+                } else if (GetAsyncKeyState(VK_RCONTROL) & 0x8000) {
+                    vk = VK_RCONTROL;
+                }
+            } else if (vk == VK_MENU) {
+                // Check which alt key is actually pressed
+                if (GetAsyncKeyState(VK_LMENU) & 0x8000) {
+                    vk = VK_LMENU;
+                } else if (GetAsyncKeyState(VK_RMENU) & 0x8000) {
+                    vk = VK_RMENU;
+                }
+            } else if (vk == VK_SHIFT) {
+                // Check which shift key is actually pressed
+                if (GetAsyncKeyState(VK_LSHIFT) & 0x8000) {
+                    vk = VK_LSHIFT;
+                } else if (GetAsyncKeyState(VK_RSHIFT) & 0x8000) {
+                    vk = VK_RSHIFT;
+                }
+            }
+            
             // Update modifiers
             data->current_modifiers = 0;
             if (GetKeyState(VK_CONTROL) & 0x8000) data->current_modifiers |= 0x0001;
@@ -588,6 +612,41 @@ static LRESULT CALLBACK KeyCaptureProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
     case WM_SYSKEYUP:
         if (data->capturing) {
             UINT vk = (UINT)wParam;
+            
+            // Convert generic modifier keys to specific L/R versions
+            if (vk == VK_CONTROL) {
+                // Use last_keycode if available, otherwise check which was released
+                if (data->last_keycode == VK_LCONTROL || data->last_keycode == VK_RCONTROL) {
+                    vk = data->last_keycode;
+                } else {
+                    // Check which control key was released
+                    if (!(GetAsyncKeyState(VK_LCONTROL) & 0x8000)) {
+                        vk = VK_LCONTROL;
+                    } else if (!(GetAsyncKeyState(VK_RCONTROL) & 0x8000)) {
+                        vk = VK_RCONTROL;
+                    }
+                }
+            } else if (vk == VK_MENU) {
+                if (data->last_keycode == VK_LMENU || data->last_keycode == VK_RMENU) {
+                    vk = data->last_keycode;
+                } else {
+                    if (!(GetAsyncKeyState(VK_LMENU) & 0x8000)) {
+                        vk = VK_LMENU;
+                    } else if (!(GetAsyncKeyState(VK_RMENU) & 0x8000)) {
+                        vk = VK_RMENU;
+                    }
+                }
+            } else if (vk == VK_SHIFT) {
+                if (data->last_keycode == VK_LSHIFT || data->last_keycode == VK_RSHIFT) {
+                    vk = data->last_keycode;
+                } else {
+                    if (!(GetAsyncKeyState(VK_LSHIFT) & 0x8000)) {
+                        vk = VK_LSHIFT;
+                    } else if (!(GetAsyncKeyState(VK_RSHIFT) & 0x8000)) {
+                        vk = VK_RSHIFT;
+                    }
+                }
+            }
             
             // Check if it's a modifier key being released
             bool is_modifier = (vk == VK_CONTROL || vk == VK_LCONTROL || vk == VK_RCONTROL ||
