@@ -7,7 +7,7 @@
 #include <direct.h>
 #include <stdbool.h>
 
-static FILE* g_log_file = NULL;
+static HANDLE g_log_file = INVALID_HANDLE_VALUE;
 static CRITICAL_SECTION g_log_mutex;
 static bool g_mutex_initialized = false;
 static char g_log_path[MAX_PATH] = {0};
@@ -38,7 +38,7 @@ void log_init(void) {
     }
     
     // Don't re-initialize if already done
-    if (g_log_file != NULL) {
+    if (g_log_file != INVALID_HANDLE_VALUE) {
         return;
     }
     
@@ -54,18 +54,28 @@ void log_init(void) {
     // Create directory if it doesn't exist
     utils_ensure_dir_exists(dir_path);
     
-    // Open log file (truncate on startup)
+    // Open log file with shared read access (truncate on startup)
     const char* log_path = get_log_path();
-    g_log_file = utils_fopen_write(log_path);
-    if (g_log_file) {
+    g_log_file = CreateFileA(log_path,
+                            GENERIC_WRITE,
+                            FILE_SHARE_READ,  // Allow other processes to read
+                            NULL,
+                            CREATE_ALWAYS,    // Always create new file
+                            FILE_ATTRIBUTE_NORMAL,
+                            NULL);
+    
+    if (g_log_file != INVALID_HANDLE_VALUE) {
         // Write session header
         time_t now = time(NULL);
         char time_str[64];
         struct tm tm_info;
         localtime_s(&tm_info, &now);
         strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_info);
-        fprintf(g_log_file, "=== Yakety Session Started: %s ===\n", time_str);
-        fflush(g_log_file);
+        
+        char header[256];
+        int len = snprintf(header, sizeof(header), "=== Yakety Session Started: %s ===\n", time_str);
+        DWORD written;
+        WriteFile(g_log_file, header, len, &written, NULL);
     }
 }
 
@@ -73,16 +83,21 @@ void log_cleanup(void) {
     if (g_mutex_initialized) {
         EnterCriticalSection(&g_log_mutex);
         
-        if (g_log_file) {
+        if (g_log_file != INVALID_HANDLE_VALUE) {
             // Write session footer
             time_t now = time(NULL);
             char time_str[64];
             struct tm tm_info;
             localtime_s(&tm_info, &now);
             strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_info);
-            fprintf(g_log_file, "=== Yakety Session Ended: %s ===\n\n", time_str);
-            fclose(g_log_file);
-            g_log_file = NULL;
+            
+            char footer[256];
+            int len = snprintf(footer, sizeof(footer), "=== Yakety Session Ended: %s ===\n\n", time_str);
+            DWORD written;
+            WriteFile(g_log_file, footer, len, &written, NULL);
+            
+            CloseHandle(g_log_file);
+            g_log_file = INVALID_HANDLE_VALUE;
         }
         
         LeaveCriticalSection(&g_log_mutex);
@@ -92,24 +107,41 @@ void log_cleanup(void) {
 }
 
 static void log_to_file(const char* level, const char* format, va_list args) {
-    if (!g_log_file || !g_mutex_initialized) return;
+    if (g_log_file == INVALID_HANDLE_VALUE || !g_mutex_initialized) return;
     
     EnterCriticalSection(&g_log_mutex);
     
-    // Write timestamp
+    // Format the complete log message
+    char buffer[2048];
+    char message[1024];
+    
+    // Format the message from va_list
+    vsnprintf(message, sizeof(message), format, args);
+    
+    // Build complete log line with timestamp
     time_t now = time(NULL);
     char time_str[64];
     struct tm tm_info;
     localtime_s(&tm_info, &now);
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_info);
-    fprintf(g_log_file, "[%s] %s: ", time_str, level);
     
-    // Write message
-    vfprintf(g_log_file, format, args);
-    if (format[strlen(format) - 1] != '\n') {
-        fprintf(g_log_file, "\n");
+    int len = snprintf(buffer, sizeof(buffer), "[%s] %s: %s", time_str, level, message);
+    
+    // Add newline if needed
+    if (message[strlen(message) - 1] != '\n') {
+        if (len < sizeof(buffer) - 1) {
+            buffer[len] = '\n';
+            buffer[len + 1] = '\0';
+            len++;
+        }
     }
-    fflush(g_log_file);
+    
+    // Write to file
+    DWORD written;
+    WriteFile(g_log_file, buffer, len, &written, NULL);
+    
+    // Flush to ensure data is written immediately
+    FlushFileBuffers(g_log_file);
     
     LeaveCriticalSection(&g_log_mutex);
 }
