@@ -185,8 +185,14 @@ elseif(WIN32)
 endif()
 
 # Find and link whisper.cpp libraries
-set(WHISPER_LIB_DIR "${WHISPER_BUILD_DIR}/src")
-set(GGML_LIB_DIR "${WHISPER_BUILD_DIR}/ggml/src")
+if(WIN32 AND NOT CMAKE_GENERATOR MATCHES "Ninja")
+    # Visual Studio generator puts libraries in Release/Debug subdirs
+    set(WHISPER_LIB_DIR "${WHISPER_BUILD_DIR}/src/Release")
+    set(GGML_LIB_DIR "${WHISPER_BUILD_DIR}/ggml/src/Release")
+else()
+    set(WHISPER_LIB_DIR "${WHISPER_BUILD_DIR}/src")
+    set(GGML_LIB_DIR "${WHISPER_BUILD_DIR}/ggml/src")
+endif()
 
 find_library(WHISPER_LIBRARY NAMES whisper PATHS ${WHISPER_LIB_DIR} NO_DEFAULT_PATH REQUIRED)
 find_library(GGML_LIBRARY NAMES ggml PATHS ${GGML_LIB_DIR} NO_DEFAULT_PATH REQUIRED)
@@ -206,7 +212,11 @@ if(APPLE)
         list(APPEND WHISPER_LIBS ${GGML_BLAS_LIBRARY})
     endif()
 elseif(WIN32 AND HAS_VULKAN)
-    find_library(GGML_VULKAN_LIBRARY NAMES ggml-vulkan PATHS "${GGML_LIB_DIR}/ggml-vulkan" NO_DEFAULT_PATH)
+    if(NOT CMAKE_GENERATOR MATCHES "Ninja")
+        find_library(GGML_VULKAN_LIBRARY NAMES ggml-vulkan PATHS "${GGML_LIB_DIR}/../ggml-vulkan/Release" NO_DEFAULT_PATH)
+    else()
+        find_library(GGML_VULKAN_LIBRARY NAMES ggml-vulkan PATHS "${GGML_LIB_DIR}/ggml-vulkan" NO_DEFAULT_PATH)
+    endif()
     if(GGML_VULKAN_LIBRARY)
         list(APPEND WHISPER_LIBS ${GGML_VULKAN_LIBRARY})
     endif()
@@ -397,12 +407,22 @@ elseif(WIN32)
     add_custom_target(package-app-windows
         DEPENDS yakety-app
         COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/Yakety-windows.zip
-        COMMAND ${CMAKE_COMMAND} -E tar c ${CMAKE_BINARY_DIR}/Yakety-windows.zip --format=zip
-            ${CMAKE_BINARY_DIR}/bin/Yakety.exe
-            ${CMAKE_BINARY_DIR}/bin/models/
-            ${CMAKE_BINARY_DIR}/bin/menubar.png
-            ${CMAKE_BINARY_DIR}/bin/recorder.exe
-            ${CMAKE_BINARY_DIR}/bin/transcribe.exe
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}/Yakety
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/Yakety
+        
+        # Copy files to Yakety directory
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/bin/Yakety.exe ${CMAKE_BINARY_DIR}/Yakety/
+        COMMAND ${CMAKE_COMMAND} -E copy_directory ${CMAKE_BINARY_DIR}/bin/models ${CMAKE_BINARY_DIR}/Yakety/models
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/bin/menubar.png ${CMAKE_BINARY_DIR}/Yakety/
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/bin/recorder.exe ${CMAKE_BINARY_DIR}/Yakety/
+        COMMAND ${CMAKE_COMMAND} -E copy ${CMAKE_BINARY_DIR}/bin/transcribe.exe ${CMAKE_BINARY_DIR}/Yakety/
+        
+        # Create zip with Yakety folder
+        COMMAND ${CMAKE_COMMAND} -E tar c ${CMAKE_BINARY_DIR}/Yakety-windows.zip --format=zip Yakety
+        
+        # Clean up temp directory
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}/Yakety
+        
         COMMAND ${CMAKE_COMMAND} -E echo "✅ Created Yakety-windows.zip"
         COMMENT "Creating Yakety app distribution for Windows..."
         VERBATIM
@@ -423,9 +443,18 @@ add_custom_target(package
 
 # Upload target
 if(WIN32)
+    # Create a batch file for the upload command to avoid escaping issues
+    file(WRITE ${CMAKE_BINARY_DIR}/upload.bat
+        "@echo off\n"
+        "for %%f in (\"${CMAKE_BINARY_DIR}\\*.zip\") do (\n"
+        "    echo Uploading %%f...\n"
+        "    scp \"%%f\" badlogic@slayer.marioslab.io:/home/badlogic/mariozechner.at/html/uploads/\n"
+        ")\n"
+    )
+    
     add_custom_target(upload
         DEPENDS package
-        COMMAND cmd /c "for %%f in (${CMAKE_BINARY_DIR}\\*.zip) do scp \"%%f\" badlogic@slayer.marioslab.io:/home/badlogic/mariozechner.at/html/uploads/"
+        COMMAND cmd /c ${CMAKE_BINARY_DIR}/upload.bat
         COMMAND ${CMAKE_COMMAND} -E echo "✅ Uploaded distribution packages to server"
         COMMENT "Uploading distribution packages to server using scp..."
         VERBATIM

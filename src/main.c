@@ -414,6 +414,38 @@ static void continue_app_initialization(void) {
     #endif
 }
 
+#ifndef YAKETY_TRAY_APP
+static const char* parse_cli_args(int argc, char** argv) {
+    if (argc <= 1) {
+        return NULL;
+    }
+    
+    // Check for help
+    if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
+        printf("Usage: %s [model_path | --model <path>]\n", argv[0]);
+        printf("Options:\n");
+        printf("  model_path        Direct path to Whisper model file\n");
+        printf("  --model <path>    Use a specific Whisper model file\n");
+        printf("  -h, --help        Show this help message\n");
+        exit(0);
+    }
+    
+    // Check for --model flag
+    for (int i = 1; i < argc - 1; i++) {
+        if (strcmp(argv[i], "--model") == 0) {
+            return argv[i + 1];
+        }
+    }
+    
+    // If no --model flag and first arg doesn't start with -, treat it as model path
+    if (argv[1][0] != '-') {
+        return argv[1];
+    }
+    
+    return NULL;
+}
+#endif
+
 #ifdef _WIN32
 #ifdef YAKETY_TRAY_APP
 int WINAPI APP_MAIN(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
@@ -423,42 +455,21 @@ int WINAPI APP_MAIN(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLin
     (void)nCmdShow;
 #else
 int APP_MAIN(int argc, char** argv) {
-    (void)argc;
-    (void)argv;
 #endif
 #else
 int APP_MAIN(int argc, char** argv) {
-    #ifndef YAKETY_TRAY_APP
-    // Parse command line arguments for CLI version
-    const char* custom_model_path = NULL;
-    if (argc > 1) {
-        if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
-            printf("Usage: %s [model_path | --model <path>]\n", argv[0]);
-            printf("Options:\n");
-            printf("  model_path        Direct path to Whisper model file\n");
-            printf("  --model <path>    Use a specific Whisper model file\n");
-            printf("  -h, --help        Show this help message\n");
-            return 0;
-        }
-        
-        // Check for --model flag
-        for (int i = 1; i < argc - 1; i++) {
-            if (strcmp(argv[i], "--model") == 0) {
-                custom_model_path = argv[i + 1];
-                break;
-            }
-        }
-        
-        // If no --model flag and first arg doesn't start with -, treat it as model path
-        if (!custom_model_path && argv[1][0] != '-') {
-            custom_model_path = argv[1];
-        }
-    }
-    #else
-    (void)argc;
-    (void)argv;
-    #endif
 #endif
+
+    // Parse command line arguments for CLI version
+    #ifndef YAKETY_TRAY_APP
+    const char* custom_model_path = parse_cli_args(argc, argv);
+    #else
+    const char* custom_model_path = NULL;
+        #ifndef _WIN32
+        (void)argc;
+        (void)argv;
+        #endif
+    #endif
 
     // Initialize logging system
     log_init();

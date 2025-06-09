@@ -12,4 +12,5 @@
 
 - Always use the CMake debug preset to build
 
-- When in WSL, run cmake via win cmake <args>. win is an alias in cmake that will tunnel into cmd.exe with VSC++ environment variables set up, so CMake can pick up the compiler
+- On Windows, CMake now automatically detects Visual Studio 2022 using the VS generator
+  No need to set up environment variables!
