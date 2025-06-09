@@ -103,18 +103,24 @@ void clipboard_copy(const char* text) {
         return;
     }
     
-    // Allocate global memory for the text
-    size_t len = strlen(text) + 1;
-    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, len);
+    // Convert to wide string for Unicode
+    int wlen = MultiByteToWideChar(CP_UTF8, 0, text, -1, NULL, 0);
+    if (wlen == 0) {
+        log_error("Failed to get wide string length");
+        return;
+    }
+    
+    // Allocate global memory for the Unicode text
+    HGLOBAL hMem = GlobalAlloc(GMEM_MOVEABLE, wlen * sizeof(WCHAR));
     if (!hMem) {
         log_error("Failed to allocate memory for clipboard");
         return;
     }
     
-    // Copy text to global memory
-    char* pMem = (char*)GlobalLock(hMem);
+    // Convert and copy text to global memory
+    WCHAR* pMem = (WCHAR*)GlobalLock(hMem);
     if (pMem) {
-        strcpy(pMem, text);
+        MultiByteToWideChar(CP_UTF8, 0, text, -1, pMem, wlen);
         GlobalUnlock(hMem);
         
         // Save current clipboard contents
@@ -123,8 +129,8 @@ void clipboard_copy(const char* text) {
         // Open clipboard and set data
         if (OpenClipboard(NULL)) {
             EmptyClipboard();
-            if (SetClipboardData(CF_TEXT, hMem)) {
-                log_info("Text copied to clipboard");
+            if (SetClipboardData(CF_UNICODETEXT, hMem)) {
+                log_info("Text copied to clipboard as Unicode");
             } else {
                 log_error("Failed to set clipboard data");
                 GlobalFree(hMem);
