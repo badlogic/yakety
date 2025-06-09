@@ -394,7 +394,11 @@ static void continue_app_initialization(void) {
                     log_info("Loaded custom hotkey: keycode=%u, modifiers=0x%x", 
                             saved_combo.keycode, saved_combo.modifier_flags);
                 } else {
+                    #ifdef _WIN32
+                    log_info("Using default Right Ctrl hotkey");
+                    #else
                     log_info("Using default FN key hotkey");
+                    #endif
                 }
             }
         } else {

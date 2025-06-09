@@ -2,34 +2,117 @@
 #include "../logging.h"
 #include <windows.h>
 #include <stdbool.h>
+#include <string.h>
 
 // Global variables
 static HHOOK g_keyboard_hook = NULL;
-static bool g_right_ctrl_pressed = false;
 static KeyCallback g_on_press = NULL;
 static KeyCallback g_on_release = NULL;
 static void* g_userdata = NULL;
+static bool g_paused = false;
+
+// Key combination tracking
+static KeyCombination g_target_combo = {VK_RCONTROL, 0}; // Default to Right Ctrl
+static bool g_combo_pressed = false;
+static uint32_t g_current_modifiers = 0;
+static bool g_tracking_modifier_only = false;
+
+// Update current modifier state
+static void update_modifiers(void) {
+    g_current_modifiers = 0;
+    if (GetAsyncKeyState(VK_CONTROL) & 0x8000) g_current_modifiers |= 0x0001;
+    if (GetAsyncKeyState(VK_MENU) & 0x8000) g_current_modifiers |= 0x0002;
+    if (GetAsyncKeyState(VK_SHIFT) & 0x8000) g_current_modifiers |= 0x0004;
+    if ((GetAsyncKeyState(VK_LWIN) & 0x8000) || (GetAsyncKeyState(VK_RWIN) & 0x8000)) {
+        g_current_modifiers |= 0x0008;
+    }
+}
+
+// Check if current state matches target combination
+static bool matches_combination(DWORD vkCode, bool keyDown) {
+    // Special case: Right Ctrl without modifiers (legacy behavior)
+    if (g_target_combo.keycode == VK_RCONTROL && g_target_combo.modifier_flags == 0) {
+        return vkCode == VK_RCONTROL;
+    }
+    
+    update_modifiers();
+    
+    // Check modifier-only combinations
+    if (g_target_combo.keycode == 0) {
+        // For modifier-only, we need to check on key release
+        if (!keyDown) {
+            // Check if the released key is one of our target modifiers
+            bool is_target_modifier = false;
+            if ((g_target_combo.modifier_flags & 0x0001) && 
+                (vkCode == VK_CONTROL || vkCode == VK_LCONTROL || vkCode == VK_RCONTROL)) {
+                is_target_modifier = true;
+            } else if ((g_target_combo.modifier_flags & 0x0002) && 
+                       (vkCode == VK_MENU || vkCode == VK_LMENU || vkCode == VK_RMENU)) {
+                is_target_modifier = true;
+            } else if ((g_target_combo.modifier_flags & 0x0004) && 
+                       (vkCode == VK_SHIFT || vkCode == VK_LSHIFT || vkCode == VK_RSHIFT)) {
+                is_target_modifier = true;
+            } else if ((g_target_combo.modifier_flags & 0x0008) && 
+                       (vkCode == VK_LWIN || vkCode == VK_RWIN)) {
+                is_target_modifier = true;
+            }
+            
+            // If this is a target modifier being released and no other keys are pressed
+            if (is_target_modifier && g_tracking_modifier_only) {
+                g_tracking_modifier_only = false;
+                return true;
+            }
+        } else if (keyDown) {
+            // On key down, check if we should start tracking modifier-only
+            bool is_modifier = (vkCode == VK_CONTROL || vkCode == VK_LCONTROL || vkCode == VK_RCONTROL ||
+                                vkCode == VK_MENU || vkCode == VK_LMENU || vkCode == VK_RMENU ||
+                                vkCode == VK_SHIFT || vkCode == VK_LSHIFT || vkCode == VK_RSHIFT ||
+                                vkCode == VK_LWIN || vkCode == VK_RWIN);
+            
+            if (is_modifier && g_current_modifiers == g_target_combo.modifier_flags) {
+                g_tracking_modifier_only = true;
+            } else if (!is_modifier) {
+                // Non-modifier key pressed, cancel modifier-only tracking
+                g_tracking_modifier_only = false;
+            }
+        }
+        return false;
+    }
+    
+    // Regular key + modifier combination
+    if (vkCode == g_target_combo.keycode) {
+        return g_current_modifiers == g_target_combo.modifier_flags;
+    }
+    
+    return false;
+}
 
 // Low-level keyboard hook procedure
 LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0) {
+    if (nCode >= 0 && !g_paused) {
         KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
+        bool keyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
+        bool keyUp = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
         
-        // Check for Right Ctrl key (VK_RCONTROL)
-        if (kbdStruct->vkCode == VK_RCONTROL) {
-            if (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN) {
-                if (!g_right_ctrl_pressed) {
-                    g_right_ctrl_pressed = true;
-                    if (g_on_press) {
-                        g_on_press(g_userdata);
-                    }
+        if (matches_combination(kbdStruct->vkCode, keyDown)) {
+            if (keyDown && !g_combo_pressed) {
+                g_combo_pressed = true;
+                if (g_on_press) {
+                    g_on_press(g_userdata);
                 }
-            } else if (wParam == WM_KEYUP || wParam == WM_SYSKEYUP) {
-                if (g_right_ctrl_pressed) {
-                    g_right_ctrl_pressed = false;
-                    if (g_on_release) {
-                        g_on_release(g_userdata);
-                    }
+            } else if (keyUp && g_combo_pressed) {
+                g_combo_pressed = false;
+                if (g_on_release) {
+                    g_on_release(g_userdata);
+                }
+            }
+        } else if (keyUp && g_combo_pressed) {
+            // Key combination broken (modifier released while key still held)
+            if (g_target_combo.keycode != 0) {
+                // Only for non-modifier-only combinations
+                g_combo_pressed = false;
+                if (g_on_release) {
+                    g_on_release(g_userdata);
                 }
             }
         }
@@ -67,26 +150,36 @@ void keylogger_cleanup(void) {
     g_on_press = NULL;
     g_on_release = NULL;
     g_userdata = NULL;
-    g_right_ctrl_pressed = false;
+    g_combo_pressed = false;
+    g_current_modifiers = 0;
+    g_tracking_modifier_only = false;
     
     log_info("Keylogger cleaned up");
 }
 
 void keylogger_pause(void) {
-    // TODO: Implement Windows keylogger pause
+    g_paused = true;
+    log_info("Keylogger paused");
 }
 
 void keylogger_resume(void) {
-    // TODO: Implement Windows keylogger resume
+    g_paused = false;
+    log_info("Keylogger resumed");
 }
 
 void keylogger_set_combination(const KeyCombination* combo) {
-    // TODO: Implement Windows custom key combination monitoring
-    (void)combo;
+    if (combo) {
+        g_target_combo = *combo;
+        g_combo_pressed = false;
+        g_tracking_modifier_only = false;
+        
+        log_info("Keylogger combination set: keycode=%u, modifiers=0x%04X", 
+                 combo->keycode, combo->modifier_flags);
+    }
 }
 
 KeyCombination keylogger_get_fn_combination(void) {
-    // Windows doesn't have FN key like macOS, return Right Ctrl equivalent
+    // Windows doesn't have FN key like macOS, return Right Ctrl as default
     KeyCombination ctrl_combo = {VK_RCONTROL, 0};
     return ctrl_combo;
 }

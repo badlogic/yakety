@@ -8,7 +8,7 @@
 
 #pragma comment(lib, "Shcore.lib")
 
-static HWND g_hwnd = NULL;
+HWND g_hwnd = NULL;
 static bool g_running = false;
 static AppConfig g_config = {0};
 static const char* WINDOW_CLASS_NAME = "YaketyAppWindow";

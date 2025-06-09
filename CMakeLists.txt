@@ -62,6 +62,7 @@ elseif(WIN32)
         src/windows/clipboard.c
         src/windows/overlay.c
         src/windows/dialog.c
+        src/windows/dialog_keycapture.c
         src/windows/menu.c
         src/windows/keylogger.c
         src/windows/app.c

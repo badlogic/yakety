@@ -1,4 +1,5 @@
 #include "../dialog.h"
+#include "../keylogger.h"
 #include <windows.h>
 #include <windowsx.h>
 #include <string.h>
@@ -558,10 +559,4 @@ bool dialog_confirm(const char* title, const char* message) {
 }
 
 
-bool dialog_keycombination_capture(const char* title, const char* message, KeyCombination* result) {
-    // TODO: Implement Windows key combination capture dialog
-    (void)title;
-    (void)message;
-    (void)result;
-    return false;
-}
+// Implemented in dialog_keycapture.c

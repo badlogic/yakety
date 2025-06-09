@@ -1,8 +1,30 @@
 #include "../clipboard.h"
 #include "../logging.h"
+#include "../utils.h"
 #include <windows.h>
 #include <string.h>
 #include <stdbool.h>
+
+extern HWND g_hwnd;
+
+static bool open_clipboard_with_retry(HWND hwnd) {
+    int elapsed_ms = 0;
+    const int max_wait_ms = 1000;
+    const int retry_delay_ms = 5;
+    
+    while (elapsed_ms < max_wait_ms) {
+        if (OpenClipboard(hwnd)) {
+            return true;
+        }
+        
+        // If we can't open it immediately, sleep and retry
+        utils_sleep_ms(retry_delay_ms);
+        elapsed_ms += retry_delay_ms;
+    }
+    
+    log_error("Failed to open clipboard after %d ms", elapsed_ms);
+    return false;
+}
 
 void clipboard_copy(const char* text) {
     if (!text || strlen(text) == 0) {
@@ -31,7 +53,7 @@ void clipboard_copy(const char* text) {
         GlobalUnlock(hMem);
         
         // Open clipboard and set data
-        if (OpenClipboard(NULL)) {
+        if (open_clipboard_with_retry(g_hwnd)) {
             EmptyClipboard();
             if (SetClipboardData(CF_UNICODETEXT, hMem)) {
                 log_info("Text copied to clipboard as Unicode");
@@ -61,21 +83,26 @@ void clipboard_paste(void) {
     INPUT inputs[4] = {0};
     
     if (isPutty) {
-        // For PuTTY, try right-click (default paste in PuTTY)
-        log_info("Detected PuTTY, using right-click for paste");
+        // For PuTTY, use Shift+Insert
+        log_info("Detected PuTTY, using Shift+Insert for paste");
         
-        // Get cursor position
-        POINT cursorPos;
-        GetCursorPos(&cursorPos);
+        // Shift down
+        inputs[0].type = INPUT_KEYBOARD;
+        inputs[0].ki.wVk = VK_SHIFT;
         
-        // Convert to window coordinates
-        ScreenToClient(foregroundWindow, &cursorPos);
+        // Insert down
+        inputs[1].type = INPUT_KEYBOARD;
+        inputs[1].ki.wVk = VK_INSERT;
         
-        // Send right-click
-        PostMessage(foregroundWindow, WM_RBUTTONDOWN, MK_RBUTTON, MAKELPARAM(cursorPos.x, cursorPos.y));
-        PostMessage(foregroundWindow, WM_RBUTTONUP, 0, MAKELPARAM(cursorPos.x, cursorPos.y));
+        // Insert up
+        inputs[2].type = INPUT_KEYBOARD;
+        inputs[2].ki.wVk = VK_INSERT;
+        inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
         
-        return; // Don't use SendInput for PuTTY
+        // Shift up
+        inputs[3].type = INPUT_KEYBOARD;
+        inputs[3].ki.wVk = VK_SHIFT;
+        inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
     } else {
         // For other applications, use Ctrl+V
         log_info("Using standard Ctrl+V");
