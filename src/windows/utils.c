@@ -27,6 +27,16 @@ double utils_get_time(void) {
     return (double)counter.QuadPart / (double)g_frequency.QuadPart;
 }
 
+double utils_now(void) {
+    static double start_time = -1.0;
+    
+    if (start_time < 0) {
+        start_time = utils_get_time();
+    }
+    
+    return utils_get_time() - start_time;
+}
+
 void utils_sleep_ms(int milliseconds) {
     Sleep(milliseconds);
 }

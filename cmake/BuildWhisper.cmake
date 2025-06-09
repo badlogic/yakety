@@ -39,6 +39,9 @@ function(build_whisper_cpp)
             )
         endif()
     elseif(WIN32)
+        # Enable native optimizations for better performance
+        list(APPEND WHISPER_CMAKE_ARGS -DGGML_NATIVE=ON)
+        
         # Check for Vulkan
         if(DEFINED ENV{VULKAN_SDK})
             list(APPEND WHISPER_CMAKE_ARGS -DGGML_VULKAN=ON)

@@ -3,12 +3,6 @@
 #include <signal.h>
 #include <string.h>
 #include <stdint.h>
-#ifdef __APPLE__
-#include <dispatch/dispatch.h>
-#endif
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 #include "app.h"
 #include "logging.h"
@@ -25,16 +19,6 @@
 #include "dialog.h"
 #endif
 
-// Entry point macro for different platforms
-#ifdef _WIN32
-    #ifdef YAKETY_TRAY_APP
-        #define APP_MAIN app_main_wrapper  // Windows GUI gets wrapper
-    #else
-        #define APP_MAIN main              // Windows CLI gets normal main
-    #endif
-#else
-    #define APP_MAIN main                  // macOS/Linux always gets main
-#endif
 
 typedef struct {
     AudioRecorder* recorder;
@@ -101,6 +85,8 @@ static void delayed_quit_callback(void* arg) {
 // Called when model loading completes
 static void on_model_loaded(void* result) {
     bool success = (intptr_t)result != 0;
+    
+    log_info("Model loading completed at %.3f seconds (success=%d)", utils_now(), success);
 
     if (!success) {
         if (!g_is_fallback_attempt) {
@@ -188,19 +174,28 @@ static void on_key_release(void* userdata) {
             return;
         }
 
-        log_info("⏹️  Stopping recording...");
+        log_info("⏹️  Stopping recording after %.2f seconds", duration);
+        double stop_start = utils_now();
         audio_recorder_stop(state->recorder);
+        double stop_duration = utils_now() - stop_start;
+        log_info("⏱️  Audio stop took: %.0f ms", stop_duration * 1000.0);
 
         // Get recorded audio
+        double get_samples_start = utils_now();
         int sample_count = 0;
         float* samples = audio_recorder_get_samples(state->recorder, &sample_count);
+        double get_samples_duration = utils_now() - get_samples_start;
+        log_info("⏱️  Getting audio samples took: %.0f ms (%d samples)", get_samples_duration * 1000.0, sample_count);
 
         if (samples && sample_count > 0) {
-            log_info("🧠 Transcribing...");
+            log_info("🧠 Starting transcription of %.2f seconds of audio...", (float)sample_count / 16000.0f);
             overlay_show("Transcribing");
 
+            double transcribe_start = utils_now();
             char* text = transcription_process(samples, sample_count, 16000);
+            double transcribe_duration = utils_now() - transcribe_start;
             overlay_hide();
+            log_info("⏱️  Full transcription pipeline took: %.0f ms", transcribe_duration * 1000.0);
 
             if (text && strlen(text) > 0) {
                 // Process the transcription
@@ -213,12 +208,17 @@ static void on_key_release(void* userdata) {
                     char* with_space = malloc(len);
                     snprintf(with_space, len, "%s ", trimmed);
 
+                    double clipboard_start = utils_now();
                     clipboard_copy(with_space);
                     utils_sleep_ms(100);
                     clipboard_paste();
+                    double clipboard_duration = utils_now() - clipboard_start;
 
                     log_info("📝 \"%s\"", trimmed);
-                    log_info("✅ Text pasted!");
+                    log_info("✅ Text pasted! (clipboard operations took %.0f ms)", clipboard_duration * 1000.0);
+                    
+                    double total_time = utils_now() - stop_start;
+                    log_info("⏱️  Total time from stop to paste: %.0f ms", total_time * 1000.0);
 
                     free(with_space);
                 } else {
@@ -243,7 +243,11 @@ static void menu_about(void) {
     dialog_info("About Yakety",
         "Yakety v1.0\n"
         "Voice-to-text input for any application\n\n"
-        "Hold FN key (or Right Ctrl on Windows) to record,\n"
+        #ifdef _WIN32
+        "Hold Right Ctrl key to record,\n"
+        #else
+        "Hold FN key to record,\n"
+        #endif
         "release to transcribe and paste.\n\n"
         "© 2025 Mario Zechner");
 }
@@ -286,7 +290,7 @@ static void menu_quit(void) {
 
 // Called when app is ready - for both CLI and tray apps
 static void on_app_ready(void) {
-    log_info("on_app_ready called - starting model loading");
+    log_info("on_app_ready called - starting model loading (%.0f ms since app start)", utils_now() * 1000.0);
     
     // Show loading overlay
     if (config_get_bool(g_config, "show_notifications", true)) {
@@ -381,7 +385,11 @@ static void continue_app_initialization(void) {
         }
     }
 
+    #ifdef _WIN32
+    log_info("Yakety is running. Press and hold Right Ctrl to record.");
+    #else
     log_info("Yakety is running. Press and hold FN to record.");
+    #endif
 
     #ifdef YAKETY_TRAY_APP
     // Check for first run and offer auto-launch
@@ -399,12 +407,28 @@ static void continue_app_initialization(void) {
     #endif
 }
 
+#ifdef _WIN32
+#ifdef YAKETY_TRAY_APP
+int WINAPI APP_MAIN(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
+    (void)hInstance;
+    (void)hPrevInstance;
+    (void)lpCmdLine;
+    (void)nCmdShow;
+#else
 int APP_MAIN(int argc, char** argv) {
     (void)argc;
     (void)argv;
+#endif
+#else
+int APP_MAIN(int argc, char** argv) {
+    (void)argc;
+    (void)argv;
+#endif
 
     // Initialize logging system
     log_init();
+    log_info("=== Yakety startup timing ===");
+    log_info("App started at %.3f seconds", utils_now());
 
     // Load configuration
     g_config = config_create();
@@ -463,6 +487,8 @@ int APP_MAIN(int argc, char** argv) {
 
     g_state = &state;
 
+    log_info("Starting app_run() at %.3f seconds", utils_now());
+    
     // Run the app
     app_run();
 
@@ -483,17 +509,3 @@ int APP_MAIN(int argc, char** argv) {
     return 0;
 }
 
-// Windows GUI entry point wrapper
-#ifdef _WIN32
-#ifdef YAKETY_TRAY_APP
-int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    (void)hInstance;
-    (void)hPrevInstance;
-    (void)lpCmdLine;
-    (void)nCmdShow;
-    
-    // Call the main function with dummy arguments
-    return app_main_wrapper(0, NULL);
-}
-#endif
-#endif

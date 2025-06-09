@@ -3,6 +3,21 @@
 
 #include <stdbool.h>
 
+// Entry point macro
+#ifdef _WIN32
+    #ifdef YAKETY_TRAY_APP
+        // Forward declarations for Windows types
+        typedef void* HINSTANCE;
+        typedef void* LPSTR;
+        #define WINAPI __stdcall
+        #define APP_MAIN WinMain
+    #else
+        #define APP_MAIN main
+    #endif
+#else
+    #define APP_MAIN main
+#endif
+
 typedef void (*AppReadyCallback)(void);
 
 typedef struct {

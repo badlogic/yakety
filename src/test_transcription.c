@@ -2,31 +2,10 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdint.h>
-#ifdef _WIN32
-#include <windows.h>
-#else
-#include <time.h>
-#endif
 
 #include "transcription.h"
 #include "logging.h"
 #include "utils.h"
-
-static double get_time_ms() {
-#ifdef _WIN32
-    static LARGE_INTEGER frequency = {0};
-    if (frequency.QuadPart == 0) {
-        QueryPerformanceFrequency(&frequency);
-    }
-    LARGE_INTEGER counter;
-    QueryPerformanceCounter(&counter);
-    return (double)(counter.QuadPart * 1000.0) / frequency.QuadPart;
-#else
-    struct timespec ts;
-    clock_gettime(CLOCK_MONOTONIC, &ts);
-    return ts.tv_sec * 1000.0 + ts.tv_nsec / 1000000.0;
-#endif
-}
 
 // Simple WAV file reader
 typedef struct {
@@ -162,7 +141,7 @@ int main(int argc, char* argv[]) {
     printf("=== Whisper Transcription Performance Test ===\n");
     printf("Audio file: %s\n", audio_file);
     
-    double start_time = get_time_ms();
+    double start_time = utils_now();
     
     // Get model path and initialize transcription
     const char* model_path = utils_get_model_path();
@@ -173,15 +152,15 @@ int main(int argc, char* argv[]) {
     
     printf("Using model: %s\n", model_path);
     printf("Loading model...\n");
-    double model_load_start = get_time_ms();
+    double model_load_start = utils_now();
     
     if (transcription_init(model_path) != 0) {
         printf("Error: Failed to initialize transcription\n");
         return 1;
     }
     
-    double model_load_time = get_time_ms() - model_load_start;
-    printf("Model loaded in %.2f ms\n", model_load_time);
+    double model_load_time = utils_now() - model_load_start;
+    printf("Model loaded in %.2f ms\n", model_load_time * 1000.0);
 
     // Read WAV file
     WavFile wav = {0};
@@ -198,17 +177,17 @@ int main(int argc, char* argv[]) {
 
     // Transcribe audio
     printf("Starting transcription...\n");
-    double transcribe_start = get_time_ms();
+    double transcribe_start = utils_now();
     char* result = transcription_process(wav.samples, wav.sample_count, wav.sample_rate);
-    double transcribe_time = get_time_ms() - transcribe_start;
+    double transcribe_time = utils_now() - transcribe_start;
     
     if (result) {
         printf("\n=== RESULTS ===\n");
         printf("Transcription: \"%s\"\n", result);
-        printf("Transcription time: %.2f ms (%.3f seconds)\n", transcribe_time, transcribe_time / 1000.0);
+        printf("Transcription time: %.2f ms (%.3f seconds)\n", transcribe_time * 1000.0, transcribe_time);
         
         // Calculate real-time factor
-        double rtf = (transcribe_time / 1000.0) / audio_duration_sec;
+        double rtf = transcribe_time / audio_duration_sec;
         printf("Real-time factor: %.2fx %s\n", rtf, 
                rtf < 1.0 ? "(FASTER than real-time)" : "(SLOWER than real-time)");
         
@@ -225,8 +204,8 @@ int main(int argc, char* argv[]) {
         printf("Error: Transcription failed\n");
     }
 
-    double total_time = get_time_ms() - start_time;
-    printf("Total time: %.2f ms\n", total_time);
+    double total_time = utils_now() - start_time;
+    printf("Total time: %.2f ms\n", total_time * 1000.0);
 
     // Cleanup
     free(wav.samples);

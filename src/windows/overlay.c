@@ -4,11 +4,15 @@
 #include "../overlay.h"
 
 #define OVERLAY_CLASS_NAME L"YaketyOverlay"
-#define OVERLAY_WIDTH 140
-#define OVERLAY_HEIGHT 36
-#define ICON_SIZE 20
-#define ICON_MARGIN 8
-#define TEXT_LEFT_MARGIN 32
+
+// Base sizes at 96 DPI (100% scaling)
+#define BASE_OVERLAY_WIDTH 140
+#define BASE_OVERLAY_HEIGHT 36
+#define BASE_ICON_SIZE 20
+#define BASE_ICON_MARGIN 8
+#define BASE_TEXT_LEFT_MARGIN 32
+#define BASE_FONT_SIZE 14
+#define BASE_CORNER_RADIUS 10
 
 static HWND g_overlay_window = NULL;
 static HINSTANCE g_instance = NULL;
@@ -17,6 +21,20 @@ static COLORREF g_text_color = RGB(255, 255, 255);
 static COLORREF g_bg_color = RGB(0, 0, 0);  // Black background
 static COLORREF g_border_color = RGB(0x22, 0xC5, 0x5E);  // Yakety green
 static HICON g_app_icon = NULL;
+static float g_dpi_scale = 1.0f;
+
+// Helper function to scale values based on DPI
+static int Scale(int value) {
+    return (int)(value * g_dpi_scale);
+}
+
+// Get DPI scale for the primary monitor
+static float GetDpiScale() {
+    HDC hdc = GetDC(NULL);
+    int dpi = GetDeviceCaps(hdc, LOGPIXELSX);
+    ReleaseDC(NULL, hdc);
+    return dpi / 96.0f;  // 96 DPI is 100% scaling
+}
 
 // Window procedure for the overlay
 LRESULT CALLBACK overlay_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -25,8 +43,15 @@ LRESULT CALLBACK overlay_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             PAINTSTRUCT ps;
             HDC hdc = BeginPaint(hwnd, &ps);
             
-            // Create rounded rectangle region (10px radius like macOS)
-            HRGN hRgn = CreateRoundRectRgn(0, 0, OVERLAY_WIDTH, OVERLAY_HEIGHT, 10, 10);
+            // Get current window size
+            RECT windowRect;
+            GetWindowRect(hwnd, &windowRect);
+            int width = windowRect.right - windowRect.left;
+            int height = windowRect.bottom - windowRect.top;
+            
+            // Create rounded rectangle region (scaled radius)
+            int radius = Scale(BASE_CORNER_RADIUS);
+            HRGN hRgn = CreateRoundRectRgn(0, 0, width, height, radius, radius);
             SetWindowRgn(hwnd, hRgn, TRUE);
             
             // Fill background
@@ -42,7 +67,7 @@ LRESULT CALLBACK overlay_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             HBRUSH nullBrush = (HBRUSH)GetStockObject(NULL_BRUSH);
             HBRUSH oldBrush = (HBRUSH)SelectObject(hdc, nullBrush);
             
-            RoundRect(hdc, 1, 1, OVERLAY_WIDTH - 1, OVERLAY_HEIGHT - 1, 10, 10);
+            RoundRect(hdc, 1, 1, rect.right - 1, rect.bottom - 1, Scale(BASE_CORNER_RADIUS), Scale(BASE_CORNER_RADIUS));
             
             SelectObject(hdc, oldPen);
             SelectObject(hdc, oldBrush);
@@ -50,23 +75,25 @@ LRESULT CALLBACK overlay_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
             
             // Draw icon if available (TODO: tint it green)
             if (g_app_icon) {
-                int iconY = (OVERLAY_HEIGHT - ICON_SIZE) / 2;
-                DrawIconEx(hdc, ICON_MARGIN, iconY, 
-                          g_app_icon, ICON_SIZE, ICON_SIZE, 0, NULL, DI_NORMAL);
+                int iconSize = Scale(BASE_ICON_SIZE);
+                int iconMargin = Scale(BASE_ICON_MARGIN);
+                int iconY = (rect.bottom - iconSize) / 2;
+                DrawIconEx(hdc, iconMargin, iconY, 
+                          g_app_icon, iconSize, iconSize, 0, NULL, DI_NORMAL);
             }
             
             // Draw text (adjusted for icon)
             SetBkMode(hdc, TRANSPARENT);
             SetTextColor(hdc, g_text_color);
             
-            HFONT font = CreateFontW(14, 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
+            HFONT font = CreateFontW(Scale(BASE_FONT_SIZE), 0, 0, 0, FW_MEDIUM, FALSE, FALSE, FALSE,
                                   DEFAULT_CHARSET, OUT_DEFAULT_PRECIS, CLIP_DEFAULT_PRECIS,
-                                  CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Arial");
+                                  CLEARTYPE_QUALITY, DEFAULT_PITCH | FF_SWISS, L"Segoe UI");
             HFONT oldFont = (HFONT)SelectObject(hdc, font);
             
             // Adjust text rectangle to account for icon
             RECT textRect = rect;
-            textRect.left = g_app_icon ? TEXT_LEFT_MARGIN : 8;
+            textRect.left = g_app_icon ? Scale(BASE_TEXT_LEFT_MARGIN) : Scale(8);
             
             DrawTextW(hdc, g_display_text, -1, &textRect, 
                      DT_CENTER | DT_VCENTER | DT_SINGLELINE);
@@ -91,6 +118,9 @@ static void create_overlay_window() {
     
     g_instance = GetModuleHandle(NULL);
     
+    // Get DPI scale
+    g_dpi_scale = GetDpiScale();
+    
     // Load application icon
     g_app_icon = LoadIcon(g_instance, MAKEINTRESOURCE(1));
     if (!g_app_icon) {
@@ -114,9 +144,13 @@ static void create_overlay_window() {
     int screenWidth = GetSystemMetrics(SM_CXSCREEN);
     int screenHeight = GetSystemMetrics(SM_CYSCREEN);
     
+    // Calculate scaled dimensions
+    int overlayWidth = Scale(BASE_OVERLAY_WIDTH);
+    int overlayHeight = Scale(BASE_OVERLAY_HEIGHT);
+    
     // Calculate position (bottom center, like macOS)
-    int x = (screenWidth - OVERLAY_WIDTH) / 2;
-    int y = screenHeight - OVERLAY_HEIGHT - 30;  // 30 pixels from bottom
+    int x = (screenWidth - overlayWidth) / 2;
+    int y = screenHeight - overlayHeight - Scale(30);  // 30 pixels from bottom
     
     // Create window (WS_POPUP with no borders, like macOS)
     g_overlay_window = CreateWindowExW(
@@ -124,7 +158,7 @@ static void create_overlay_window() {
         OVERLAY_CLASS_NAME,
         L"Yakety",
         WS_POPUP,
-        x, y, OVERLAY_WIDTH, OVERLAY_HEIGHT,
+        x, y, overlayWidth, overlayHeight,
         NULL, NULL, g_instance, NULL
     );
     

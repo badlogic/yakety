@@ -21,14 +21,19 @@ int transcription_init(const char* model_path) {
     
     log_info("🧠 Loading Whisper model: %s\n", model_path);
     
+    double start = utils_now();
+    
     struct whisper_context_params cparams = whisper_context_default_params();
     ctx = whisper_init_from_file_with_params(model_path, cparams);
+    
+    double duration = utils_now() - start;
+    
     if (!ctx) {
         log_error("ERROR: Failed to initialize Whisper from model file: %s\n", model_path);
         return -1;
     }
     
-    log_info("✅ Whisper initialized successfully\n");
+    log_info("✅ Whisper initialized successfully (took %.0f ms)\n", duration * 1000.0);
     return 0;
 }
 
@@ -45,7 +50,9 @@ char* transcription_process(const float* audio_data, int n_samples, int sample_r
         return NULL;
     }
 
-    log_info("🧠 Transcribing %d audio samples...\n", n_samples);
+    log_info("🧠 Transcribing %d audio samples (%.2f seconds)...\n", n_samples, (float)n_samples / 16000.0f);
+
+    double total_start = utils_now();
 
     // Set up whisper parameters
     struct whisper_full_params wparams = whisper_full_default_params(WHISPER_SAMPLING_GREEDY);
@@ -60,7 +67,13 @@ char* transcription_process(const float* audio_data, int n_samples, int sample_r
     wparams.duration_ms = 0;
 
     // Run transcription
-    if (whisper_full(ctx, wparams, audio_data, n_samples) != 0) {
+    double whisper_start = utils_now();
+    int whisper_result = whisper_full(ctx, wparams, audio_data, n_samples);
+    double whisper_duration = utils_now() - whisper_start;
+    
+    log_info("⏱️  Whisper inference took: %.0f ms\n", whisper_duration * 1000.0);
+    
+    if (whisper_result != 0) {
         log_error("ERROR: Failed to run whisper transcription\n");
         return NULL;
     }
@@ -154,7 +167,10 @@ char* transcription_process(const float* audio_data, int n_samples, int sample_r
     }
     *write = '\0';
 
+    double total_duration = utils_now() - total_start;
+    
     log_info("✅ Transcription complete: \"%s\"\n", result);
+    log_info("⏱️  Total transcription process took: %.0f ms\n", total_duration * 1000.0);
     return result;
 }
 

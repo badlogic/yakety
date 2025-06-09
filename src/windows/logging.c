@@ -31,6 +31,11 @@ void log_init(void) {
         g_mutex_initialized = true;
     }
     
+    // Don't re-initialize if already done
+    if (g_log_file != NULL) {
+        return;
+    }
+    
     // Ensure .yakety directory exists
     char dir_path[MAX_PATH];
     char* userprofile = getenv("USERPROFILE");
@@ -53,7 +58,7 @@ void log_init(void) {
         struct tm tm_info;
         localtime_s(&tm_info, &now);
         strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_info);
-        fprintf(g_log_file, "\n=== Yakety Session Started: %s ===\n", time_str);
+        fprintf(g_log_file, "=== Yakety Session Started: %s ===\n", time_str);
         fflush(g_log_file);
     }
 }

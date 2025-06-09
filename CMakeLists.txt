@@ -92,6 +92,11 @@ set_target_properties(yakety PROPERTIES OUTPUT_NAME "yakety-cli")
 target_link_libraries(yakety PRIVATE platform)
 target_include_directories(yakety PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
+# Add Windows resource file to CLI if it exists
+if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/yakety.rc")
+    target_sources(yakety PRIVATE src/windows/yakety.rc)
+endif()
+
 # Create yakety-app executable
 if(WIN32)
     # Windows GUI app (no console window)

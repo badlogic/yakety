@@ -5,6 +5,7 @@
 #include <stdio.h>  // For FILE*
 
 double utils_get_time(void);
+double utils_now(void);  // Returns seconds since first call (app start)
 void utils_sleep_ms(int milliseconds);
 const char* utils_get_model_path(void);
 const char* utils_get_model_path_with_config(void* config);

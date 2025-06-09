@@ -16,6 +16,16 @@ double utils_get_time(void) {
     return tv.tv_sec + tv.tv_usec * 1e-6;
 }
 
+double utils_now(void) {
+    static double start_time = -1.0;
+    
+    if (start_time < 0) {
+        start_time = utils_get_time();
+    }
+    
+    return utils_get_time() - start_time;
+}
+
 void utils_sleep_ms(int milliseconds) {
     usleep(milliseconds * 1000);
 }

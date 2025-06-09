@@ -4,6 +4,9 @@
 #include <windows.h>
 #include <stdlib.h>
 #include <string.h>
+#include <shellscalingapi.h>
+
+#pragma comment(lib, "Shcore.lib")
 
 static HWND g_hwnd = NULL;
 static bool g_running = false;
@@ -37,6 +40,16 @@ int app_init(const AppConfig* config) {
     if (!config) {
         log_error("Invalid app configuration");
         return -1;
+    }
+
+    // Enable DPI awareness for sharp rendering on high-DPI displays
+    HRESULT hr = SetProcessDpiAwareness(PROCESS_PER_MONITOR_DPI_AWARE);
+    if (FAILED(hr)) {
+        // Fallback to older API if available
+        BOOL dpiResult = SetProcessDPIAware();
+        if (!dpiResult) {
+            log_info("Failed to set DPI awareness");
+        }
     }
 
     // Copy configuration
