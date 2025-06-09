@@ -5,9 +5,33 @@
 #include <shellapi.h>
 #include <stdlib.h>
 #include <string.h>
+#include <uxtheme.h>
+#include <dwmapi.h>
+
+#pragma comment(lib, "uxtheme.lib")
+#pragma comment(lib, "dwmapi.lib")
 
 #define WM_TRAYICON (WM_USER + 1)
 #define ID_TRAY_BASE 1000
+
+// Dark mode support - undocumented Windows APIs
+typedef enum {
+    Default,
+    AllowDark,
+    ForceDark,
+    ForceLight,
+    Max
+} PreferredAppMode;
+
+typedef BOOL (WINAPI *fnAllowDarkModeForWindow)(HWND hWnd, BOOL allow);
+typedef PreferredAppMode (WINAPI *fnSetPreferredAppMode)(PreferredAppMode appMode);
+typedef void (WINAPI *fnFlushMenuThemes)(void);
+typedef BOOL (WINAPI *fnShouldAppsUseDarkMode)(void);
+
+static fnAllowDarkModeForWindow AllowDarkModeForWindow = NULL;
+static fnSetPreferredAppMode SetPreferredAppMode = NULL;
+static fnFlushMenuThemes FlushMenuThemes = NULL;
+static fnShouldAppsUseDarkMode ShouldAppsUseDarkMode = NULL;
 
 static HWND g_hidden_window = NULL;
 static NOTIFYICONDATAW g_tray_icon = {0};
@@ -15,6 +39,25 @@ static HMENU g_tray_menu = NULL;
 static MenuSystem* g_menu_system = NULL;
 
 static const wchar_t* WINDOW_CLASS_NAME = L"YaketyMenuWindow";
+
+// Initialize dark mode APIs
+static void init_dark_mode() {
+    HMODULE hUxtheme = LoadLibraryExW(L"uxtheme.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
+    if (!hUxtheme) return;
+    
+    AllowDarkModeForWindow = (fnAllowDarkModeForWindow)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(133));
+    SetPreferredAppMode = (fnSetPreferredAppMode)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(135));
+    FlushMenuThemes = (fnFlushMenuThemes)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(136));
+    ShouldAppsUseDarkMode = (fnShouldAppsUseDarkMode)GetProcAddress(hUxtheme, MAKEINTRESOURCEA(132));
+    
+    // Enable dark mode for the app
+    if (SetPreferredAppMode && ShouldAppsUseDarkMode && ShouldAppsUseDarkMode()) {
+        SetPreferredAppMode(AllowDark);
+        if (FlushMenuThemes) {
+            FlushMenuThemes();
+        }
+    }
+}
 
 // Window procedure for hidden window
 static LRESULT CALLBACK menu_window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam) {
@@ -113,6 +156,9 @@ int menu_show(MenuSystem* menu) {
     
     g_menu_system = menu;
     
+    // Initialize dark mode support
+    init_dark_mode();
+    
     // Register window class if not already registered
     WNDCLASSEXW wc = {0};
     if (!GetClassInfoExW(GetModuleHandle(NULL), WINDOW_CLASS_NAME, &wc)) {
@@ -142,6 +188,16 @@ int menu_show(MenuSystem* menu) {
     if (!g_hidden_window) {
         log_error("Failed to create menu window");
         return -1;
+    }
+    
+    // Enable dark mode for window if available
+    if (AllowDarkModeForWindow) {
+        AllowDarkModeForWindow(g_hidden_window, TRUE);
+        SetWindowTheme(g_hidden_window, L"Explorer", NULL);
+        
+        // Also enable dark mode for title bar
+        BOOL value = TRUE;
+        DwmSetWindowAttribute(g_hidden_window, 20, &value, sizeof(value)); // DWMWA_USE_IMMERSIVE_DARK_MODE = 20
     }
     
     // Create tray menu
