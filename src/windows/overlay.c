@@ -140,17 +140,20 @@ static void create_overlay_window() {
     
     RegisterClassExW(&wc);
     
-    // Get screen dimensions
-    int screenWidth = GetSystemMetrics(SM_CXSCREEN);
-    int screenHeight = GetSystemMetrics(SM_CYSCREEN);
+    // Get work area (screen minus taskbar)
+    RECT workArea;
+    SystemParametersInfo(SPI_GETWORKAREA, 0, &workArea, 0);
+    
+    int screenWidth = workArea.right - workArea.left;
+    int screenHeight = workArea.bottom - workArea.top;
     
     // Calculate scaled dimensions
     int overlayWidth = Scale(BASE_OVERLAY_WIDTH);
     int overlayHeight = Scale(BASE_OVERLAY_HEIGHT);
     
-    // Calculate position (bottom center, like macOS)
-    int x = (screenWidth - overlayWidth) / 2;
-    int y = screenHeight - overlayHeight - Scale(30);  // 30 pixels from bottom
+    // Calculate position (bottom center of work area, above taskbar)
+    int x = workArea.left + (screenWidth - overlayWidth) / 2;
+    int y = workArea.bottom - overlayHeight - Scale(30);  // 30 pixels from bottom of work area
     
     // Create window (WS_POPUP with no borders, like macOS)
     g_overlay_window = CreateWindowExW(
