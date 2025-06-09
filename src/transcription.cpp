@@ -134,8 +134,8 @@ char* transcription_process(const float* audio_data, int n_samples, int sample_r
         }
     }
 
-    // Allocate buffer with extra space for processing and trailing space
-    char* result = (char*)malloc(total_len + 2);  // +1 for null terminator, +1 for trailing space
+    // Allocate buffer with extra space for processing
+    char* result = (char*)malloc(total_len + 1);
     if (!result) {
         log_error("ERROR: Failed to allocate memory for transcription\n");
         return NULL;
@@ -205,11 +205,6 @@ char* transcription_process(const float* audio_data, int n_samples, int sample_r
         read++;
     }
     *write = '\0';
-    
-    // Add trailing space for better UX when pasting
-    if (strlen(result) > 0) {
-        strcat(result, " ");
-    }
 
     double total_duration = utils_now() - total_start;
 
