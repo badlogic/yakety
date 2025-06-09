@@ -20,9 +20,15 @@ static bool g_tracking_modifier_only = false;
 // Update current modifier state
 static void update_modifiers(void) {
     g_current_modifiers = 0;
-    if (GetAsyncKeyState(VK_CONTROL) & 0x8000) g_current_modifiers |= 0x0001;
-    if (GetAsyncKeyState(VK_MENU) & 0x8000) g_current_modifiers |= 0x0002;
-    if (GetAsyncKeyState(VK_SHIFT) & 0x8000) g_current_modifiers |= 0x0004;
+    if ((GetAsyncKeyState(VK_LCONTROL) & 0x8000) || (GetAsyncKeyState(VK_RCONTROL) & 0x8000)) {
+        g_current_modifiers |= 0x0001;
+    }
+    if ((GetAsyncKeyState(VK_LMENU) & 0x8000) || (GetAsyncKeyState(VK_RMENU) & 0x8000)) {
+        g_current_modifiers |= 0x0002;
+    }
+    if ((GetAsyncKeyState(VK_LSHIFT) & 0x8000) || (GetAsyncKeyState(VK_RSHIFT) & 0x8000)) {
+        g_current_modifiers |= 0x0004;
+    }
     if ((GetAsyncKeyState(VK_LWIN) & 0x8000) || (GetAsyncKeyState(VK_RWIN) & 0x8000)) {
         g_current_modifiers |= 0x0008;
     }
@@ -30,14 +36,15 @@ static void update_modifiers(void) {
 
 // Check if current state matches target combination
 static bool matches_combination(DWORD vkCode, bool keyDown) {
-    // Special case: Right Ctrl without modifiers (legacy behavior)
-    if (g_target_combo.keycode == VK_RCONTROL && g_target_combo.modifier_flags == 0) {
-        return vkCode == VK_RCONTROL;
+    // Special case: Single modifier keys without additional modifiers
+    if (g_target_combo.modifier_flags == 0 && g_target_combo.keycode != 0) {
+        // Direct key match for single modifier keys
+        return (vkCode == g_target_combo.keycode);
     }
     
     update_modifiers();
     
-    // Check modifier-only combinations
+    // Check modifier-only combinations (deprecated path, shouldn't be used anymore)
     if (g_target_combo.keycode == 0) {
         // For modifier-only, we need to check on key release
         if (!keyDown) {
@@ -94,7 +101,29 @@ LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
         bool keyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
         bool keyUp = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
         
-        if (matches_combination(kbdStruct->vkCode, keyDown)) {
+        // Convert generic VK codes to specific L/R versions based on extended key flag
+        DWORD vkCode = kbdStruct->vkCode;
+        DWORD origVkCode = vkCode;
+        if (vkCode == VK_CONTROL) {
+            vkCode = (kbdStruct->flags & LLKHF_EXTENDED) ? VK_RCONTROL : VK_LCONTROL;
+        } else if (vkCode == VK_MENU) {
+            vkCode = (kbdStruct->flags & LLKHF_EXTENDED) ? VK_RMENU : VK_LMENU;
+        } else if (vkCode == VK_SHIFT) {
+            // Shift keys need scan code check
+            vkCode = (kbdStruct->scanCode == 0x36) ? VK_RSHIFT : VK_LSHIFT;
+        }
+        
+        // Debug log for modifier keys
+        if (keyDown && (origVkCode == VK_CONTROL || origVkCode == VK_MENU || origVkCode == VK_SHIFT ||
+                        vkCode == VK_LCONTROL || vkCode == VK_RCONTROL || 
+                        vkCode == VK_LMENU || vkCode == VK_RMENU ||
+                        vkCode == VK_LSHIFT || vkCode == VK_RSHIFT)) {
+            log_info("Key pressed: orig=0x%02X, converted=0x%02X, extended=%d, scanCode=0x%02X, target=0x%02X",
+                     origVkCode, vkCode, (kbdStruct->flags & LLKHF_EXTENDED) ? 1 : 0, 
+                     kbdStruct->scanCode, g_target_combo.keycode);
+        }
+        
+        if (matches_combination(vkCode, keyDown)) {
             if (keyDown && !g_combo_pressed) {
                 g_combo_pressed = true;
                 if (g_on_press) {
