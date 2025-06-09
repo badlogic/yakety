@@ -84,17 +84,16 @@ set(BUSINESS_SOURCES
 )
 
 # Create yakety CLI executable
-add_executable(yakety
+add_executable(yakety-cli
     src/main.c
     ${BUSINESS_SOURCES}
 )
-set_target_properties(yakety PROPERTIES OUTPUT_NAME "yakety-cli")
-target_link_libraries(yakety PRIVATE platform)
-target_include_directories(yakety PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+target_link_libraries(yakety-cli PRIVATE platform)
+target_include_directories(yakety-cli PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Add Windows resource file to CLI if it exists
 if(WIN32 AND EXISTS "${CMAKE_CURRENT_SOURCE_DIR}/src/windows/yakety.rc")
-    target_sources(yakety PRIVATE src/windows/yakety.rc)
+    target_sources(yakety-cli PRIVATE src/windows/yakety.rc)
 endif()
 
 # Create yakety-app executable
@@ -214,7 +213,7 @@ elseif(WIN32 AND HAS_VULKAN)
 endif()
 
 # Link whisper to all targets that need it
-foreach(target yakety yakety-app transcribe)
+foreach(target yakety-cli yakety-app transcribe)
     target_link_libraries(${target} PRIVATE ${WHISPER_LIBS})
     target_include_directories(${target} PRIVATE
         ${WHISPER_DIR}
@@ -226,13 +225,13 @@ endforeach()
 
 # Link Metal frameworks for macOS
 if(APPLE AND METAL_FRAMEWORKS)
-    foreach(target yakety yakety-app transcribe)
+    foreach(target yakety-cli yakety-app transcribe)
         target_link_libraries(${target} PRIVATE ${METAL_FRAMEWORKS})
     endforeach()
 endif()
 
 # Set output directory
-set_target_properties(yakety yakety-app recorder transcribe PROPERTIES
+set_target_properties(yakety-cli yakety-app recorder transcribe PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY ${CMAKE_BINARY_DIR}/bin
     RUNTIME_OUTPUT_DIRECTORY_DEBUG ${CMAKE_BINARY_DIR}/bin
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_BINARY_DIR}/bin
@@ -241,9 +240,9 @@ set_target_properties(yakety yakety-app recorder transcribe PROPERTIES
 # Copy whisper model to output directory for CLI tools
 set(MODEL_FILE "${WHISPER_DIR}/models/ggml-base.en.bin")
 if(EXISTS ${MODEL_FILE})
-    add_custom_command(TARGET yakety POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:yakety>/models"
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MODEL_FILE}" "$<TARGET_FILE_DIR:yakety>/models/ggml-base.en.bin"
+    add_custom_command(TARGET yakety-cli POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E make_directory "$<TARGET_FILE_DIR:yakety-cli>/models"
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MODEL_FILE}" "$<TARGET_FILE_DIR:yakety-cli>/models/ggml-base.en.bin"
         COMMENT "Copying Whisper model to output directory"
     )
 endif()
@@ -251,8 +250,8 @@ endif()
 # Copy menubar icon for CLI tools
 set(MENUBAR_ICON_FILE "${CMAKE_CURRENT_SOURCE_DIR}/assets/generated/menubar.png")
 if(EXISTS ${MENUBAR_ICON_FILE})
-    add_custom_command(TARGET yakety POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MENUBAR_ICON_FILE}" "$<TARGET_FILE_DIR:yakety>/menubar.png"
+    add_custom_command(TARGET yakety-cli POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different "${MENUBAR_ICON_FILE}" "$<TARGET_FILE_DIR:yakety-cli>/menubar.png"
         COMMENT "Copying menubar icon for CLI"
     )
     add_custom_command(TARGET transcribe POST_BUILD
@@ -265,7 +264,7 @@ endif()
 if(WIN32)
     # For Windows Debug builds, use Release runtime library to match whisper.cpp
     if(CMAKE_BUILD_TYPE STREQUAL "Debug")
-        foreach(target yakety yakety-app recorder transcribe platform)
+        foreach(target yakety-cli yakety-app recorder transcribe platform)
             target_compile_options(${target} PRIVATE /MD)
             target_compile_definitions(${target} PRIVATE _ITERATOR_DEBUG_LEVEL=0)
         endforeach()
@@ -290,13 +289,13 @@ elseif(NOT WIN32)
             -fsanitize=undefined
         )
         # Add sanitizer libraries for linking
-        foreach(target yakety yakety-app recorder transcribe)
+        foreach(target yakety-cli yakety-app recorder transcribe)
             target_link_options(${target} PRIVATE -fsanitize=address -fsanitize=undefined)
         endforeach()
     endif()
 
     # Apply flags to all targets
-    foreach(target yakety yakety-app recorder transcribe)
+    foreach(target yakety-cli yakety-app recorder transcribe)
         target_compile_options(${target} PRIVATE ${WARNING_FLAGS})
     endforeach()
 endif()
@@ -316,95 +315,130 @@ message(STATUS "Output directory: ${CMAKE_BINARY_DIR}/bin")
 message(STATUS "=================================")
 message(STATUS "")
 
-# DMG creation for macOS
+
+# Distribution packaging targets
 if(APPLE)
-    set(DMG_NAME "Yakety-${PROJECT_VERSION}")
-    set(DMG_DIR "${CMAKE_BINARY_DIR}/dmg_temp")
+    # CLI distribution for macOS
+    add_custom_target(package-cli-macos
+        DEPENDS yakety-cli recorder transcribe
+        COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/yakety-cli-macos.zip
+        COMMAND ${CMAKE_COMMAND} -E tar c ${CMAKE_BINARY_DIR}/yakety-cli-macos.zip --format=zip
+            ${CMAKE_BINARY_DIR}/bin/yakety-cli
+            ${CMAKE_BINARY_DIR}/bin/models/
+            ${CMAKE_BINARY_DIR}/bin/menubar.png
+            ${CMAKE_BINARY_DIR}/bin/recorder
+            ${CMAKE_BINARY_DIR}/bin/transcribe
+        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created yakety-cli-macos.zip"
+        COMMENT "Creating yakety CLI distribution for macOS..."
+        VERBATIM
+    )
 
-    # Create DMG target
-    add_custom_target(dmg
+    # App distribution for macOS
+    add_custom_target(package-app-macos
         DEPENDS yakety-app
-        COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
-        COMMAND ${CMAKE_COMMAND} -E make_directory ${DMG_DIR}
+        COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/Yakety-macos.dmg
+        COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/Yakety-macos.zip
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}/dmg_temp
+        COMMAND ${CMAKE_COMMAND} -E make_directory ${CMAKE_BINARY_DIR}/dmg_temp
 
-        # Copy app bundle
+        # Copy app bundle to temp directory
         COMMAND ${CMAKE_COMMAND} -E copy_directory
             $<TARGET_BUNDLE_DIR:yakety-app>
-            ${DMG_DIR}/Yakety.app
+            ${CMAKE_BINARY_DIR}/dmg_temp/Yakety.app
 
         # Create Applications symlink
         COMMAND ${CMAKE_COMMAND} -E create_symlink
             /Applications
-            ${DMG_DIR}/Applications
+            ${CMAKE_BINARY_DIR}/dmg_temp/Applications
 
         # Create DMG
         COMMAND hdiutil create
             -volname "Yakety"
-            -srcfolder ${DMG_DIR}
+            -srcfolder ${CMAKE_BINARY_DIR}/dmg_temp
             -ov
             -format UDZO
-            ${CMAKE_BINARY_DIR}/${DMG_NAME}.dmg
+            ${CMAKE_BINARY_DIR}/Yakety-macos.dmg
 
-        # Clean up
-        COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
+        # Create ZIP of the DMG for additional compression
+        COMMAND ${CMAKE_COMMAND} -E tar c ${CMAKE_BINARY_DIR}/Yakety-macos.zip --format=zip
+            ${CMAKE_BINARY_DIR}/Yakety-macos.dmg
 
-        # Report success
-        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created ${DMG_NAME}.dmg"
+        # Clean up temp directory
+        COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}/dmg_temp
 
-        COMMENT "Creating DMG package..."
+        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created Yakety-macos.dmg and Yakety-macos.zip"
+        COMMENT "Creating Yakety app distribution for macOS..."
         VERBATIM
     )
 
-    # Create a nicer DMG with background (optional, requires create-dmg)
-    find_program(CREATE_DMG create-dmg)
-    if(CREATE_DMG)
-        add_custom_target(dmg-fancy
-            DEPENDS yakety-app
-            COMMAND ${CMAKE_COMMAND} -E remove_directory ${DMG_DIR}
-            COMMAND ${CMAKE_COMMAND} -E make_directory ${DMG_DIR}
+    # Combined package target for macOS
+    add_custom_target(package-macos
+        DEPENDS package-cli-macos package-app-macos
+        COMMENT "Creating all macOS distribution packages..."
+    )
 
-            # Copy app bundle
-            COMMAND ${CMAKE_COMMAND} -E copy_directory
-                $<TARGET_BUNDLE_DIR:yakety-app>
-                ${DMG_DIR}/Yakety.app
+elseif(WIN32)
+    # CLI distribution for Windows
+    add_custom_target(package-cli-windows
+        DEPENDS yakety-cli recorder transcribe
+        COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/yakety-cli-windows.zip
+        COMMAND ${CMAKE_COMMAND} -E tar c ${CMAKE_BINARY_DIR}/yakety-cli-windows.zip --format=zip
+            ${CMAKE_BINARY_DIR}/bin/yakety-cli.exe
+            ${CMAKE_BINARY_DIR}/bin/models/
+            ${CMAKE_BINARY_DIR}/bin/menubar.png
+            ${CMAKE_BINARY_DIR}/bin/recorder.exe
+            ${CMAKE_BINARY_DIR}/bin/transcribe.exe
+        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created yakety-cli-windows.zip"
+        COMMENT "Creating yakety CLI distribution for Windows..."
+        VERBATIM
+    )
 
-            # Use create-dmg for a nicer DMG
-            COMMAND ${CREATE_DMG}
-                --volname "Yakety"
-                --window-pos 200 120
-                --window-size 600 400
-                --icon-size 100
-                --icon "Yakety.app" 150 200
-                --app-drop-link 450 200
-                --hdiutil-quiet
-                ${CMAKE_BINARY_DIR}/${DMG_NAME}.dmg
-                ${DMG_DIR}
-
-            # Report success
-            COMMAND ${CMAKE_COMMAND} -E echo "✅ Created fancy ${DMG_NAME}.dmg"
-
-            COMMENT "Creating fancy DMG package with create-dmg..."
-            VERBATIM
-        )
-        message(STATUS "Fancy DMG target available:I'd like to head on a run, do you want to join me? (requires create-dmg)")
-    endif()
-
-    message(STATUS "DMG target available: make dmg")
-
-    # ZIP creation target
-    add_custom_target(zip
+    # App distribution for Windows
+    add_custom_target(package-app-windows
         DEPENDS yakety-app
-        COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/${DMG_NAME}.zip
-
-        # Use ditto to create ZIP (better for macOS bundles with symlinks and resource forks)
-        COMMAND ditto -c -k --keepParent ${CMAKE_BINARY_DIR}/bin/Yakety.app ${CMAKE_BINARY_DIR}/${DMG_NAME}.zip
-
-        # Report success
-        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created ${DMG_NAME}.zip"
-
-        COMMENT "Creating ZIP package..."
+        COMMAND ${CMAKE_COMMAND} -E remove -f ${CMAKE_BINARY_DIR}/Yakety-windows.zip
+        COMMAND ${CMAKE_COMMAND} -E tar c ${CMAKE_BINARY_DIR}/Yakety-windows.zip --format=zip
+            ${CMAKE_BINARY_DIR}/bin/Yakety.exe
+            ${CMAKE_BINARY_DIR}/bin/models/
+            ${CMAKE_BINARY_DIR}/bin/menubar.png
+            ${CMAKE_BINARY_DIR}/bin/recorder.exe
+            ${CMAKE_BINARY_DIR}/bin/transcribe.exe
+        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created Yakety-windows.zip"
+        COMMENT "Creating Yakety app distribution for Windows..."
         VERBATIM
     )
 
-    message(STATUS "ZIP target available: make zip")
+    # Combined package target for Windows
+    add_custom_target(package-windows
+        DEPENDS package-cli-windows package-app-windows
+        COMMENT "Creating all Windows distribution packages..."
+    )
 endif()
+
+# Universal package target
+add_custom_target(package
+    DEPENDS $<IF:$<PLATFORM_ID:Darwin>,package-macos,package-windows>
+    COMMENT "Creating all distribution packages for current platform..."
+)
+
+# Upload target
+if(WIN32)
+    add_custom_target(upload
+        DEPENDS package
+        COMMAND cmd /c "for %%f in (${CMAKE_BINARY_DIR}\\*.zip) do scp \"%%f\" badlogic@slayer.marioslab.io:/home/badlogic/mariozechner.at/html/uploads/"
+        COMMAND ${CMAKE_COMMAND} -E echo "✅ Uploaded distribution packages to server"
+        COMMENT "Uploading distribution packages to server using scp..."
+        VERBATIM
+    )
+else()
+    add_custom_target(upload
+        DEPENDS package
+        COMMAND sh -c "rsync -avz --progress ${CMAKE_BINARY_DIR}/*.zip badlogic@slayer.marioslab.io:/home/badlogic/mariozechner.at/html/uploads/"
+        COMMAND ${CMAKE_COMMAND} -E echo "✅ Uploaded distribution packages to server"
+        COMMENT "Uploading distribution packages to server using rsync..."
+        VERBATIM
+    )
+endif()
+
+message(STATUS "Package targets available: package, package-cli-${CMAKE_SYSTEM_NAME}, package-app-${CMAKE_SYSTEM_NAME}")
+message(STATUS "Upload target available: upload (packages and uploads to server)")

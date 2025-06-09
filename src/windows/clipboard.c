@@ -2,6 +2,7 @@
 #include "../logging.h"
 #include <windows.h>
 #include <string.h>
+#include <stdbool.h>
 
 void clipboard_copy(const char* text) {
     if (!text || strlen(text) == 0) {
@@ -44,26 +45,58 @@ void clipboard_copy(const char* text) {
 }
 
 void clipboard_paste(void) {
-    // Simulate Ctrl+V to paste
+    // Check if the foreground window is PuTTY
+    HWND foregroundWindow = GetForegroundWindow();
+    char className[256];
+    int classNameLength = GetClassName(foregroundWindow, className, sizeof(className));
+    
+    bool isPutty = (classNameLength > 0 && strcmp(className, "PuTTY") == 0);
+    
     INPUT inputs[4] = {0};
     
-    // Ctrl down
-    inputs[0].type = INPUT_KEYBOARD;
-    inputs[0].ki.wVk = VK_CONTROL;
-    
-    // V down
-    inputs[1].type = INPUT_KEYBOARD;
-    inputs[1].ki.wVk = 'V';
-    
-    // V up
-    inputs[2].type = INPUT_KEYBOARD;
-    inputs[2].ki.wVk = 'V';
-    inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
-    
-    // Ctrl up
-    inputs[3].type = INPUT_KEYBOARD;
-    inputs[3].ki.wVk = VK_CONTROL;
-    inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    if (isPutty) {
+        // For PuTTY, use Shift+Insert
+        log_info("Detected PuTTY, using Shift+Insert");
+        
+        // Shift down
+        inputs[0].type = INPUT_KEYBOARD;
+        inputs[0].ki.wVk = VK_SHIFT;
+        
+        // Insert down
+        inputs[1].type = INPUT_KEYBOARD;
+        inputs[1].ki.wVk = VK_INSERT;
+        
+        // Insert up
+        inputs[2].type = INPUT_KEYBOARD;
+        inputs[2].ki.wVk = VK_INSERT;
+        inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
+        
+        // Shift up
+        inputs[3].type = INPUT_KEYBOARD;
+        inputs[3].ki.wVk = VK_SHIFT;
+        inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    } else {
+        // For other applications, use Ctrl+V
+        log_info("Using standard Ctrl+V");
+        
+        // Ctrl down
+        inputs[0].type = INPUT_KEYBOARD;
+        inputs[0].ki.wVk = VK_CONTROL;
+        
+        // V down
+        inputs[1].type = INPUT_KEYBOARD;
+        inputs[1].ki.wVk = 'V';
+        
+        // V up
+        inputs[2].type = INPUT_KEYBOARD;
+        inputs[2].ki.wVk = 'V';
+        inputs[2].ki.dwFlags = KEYEVENTF_KEYUP;
+        
+        // Ctrl up
+        inputs[3].type = INPUT_KEYBOARD;
+        inputs[3].ki.wVk = VK_CONTROL;
+        inputs[3].ki.dwFlags = KEYEVENTF_KEYUP;
+    }
     
     // Send the input
     UINT sent = SendInput(4, inputs, sizeof(INPUT));

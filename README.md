@@ -73,7 +73,7 @@ build/bin/
 └── test_transcription       # Transcription test tool
 ```
 
-### Creating macOS Distribution Packages
+### Creating Distribution Packages
 
 After building, you can create distributable packages:
 
@@ -82,19 +82,29 @@ After building, you can create distributable packages:
 cmake --preset=release
 cmake --build --preset=release
 
-# Create a ZIP file (simplest option)
-cmake --build --preset=release --target zip
+# Create distribution packages for current platform
+cmake --build build --target package
 
-# Create a DMG file
-cmake --build --preset=release --target dmg
+# Create specific packages
+cmake --build build --target package-cli-macos    # CLI tools only (macOS)
+cmake --build build --target package-app-macos    # App bundle only (macOS)
+cmake --build build --target package-cli-windows  # CLI tools only (Windows)
+cmake --build build --target package-app-windows  # App bundle only (Windows)
 
-# Or create a fancy DMG with custom styling (requires: brew install create-dmg)
-cmake --build --preset=release --target dmg-fancy
+# Upload packages to server (requires SSH access)
+cmake --build build --target upload
 ```
 
-The packages will be created as:
-- `build/Yakety-1.0.0.zip` - Simple ZIP archive
-- `build/Yakety-1.0.0.dmg` - Standard disk image
+**Distribution packages created:**
+
+**macOS:**
+- `yakety-cli-macos.zip` - CLI tools (yakety-cli, models, menubar.png, recorder, transcribe)
+- `Yakety-macos.dmg` - App bundle as disk image (Yakety.app with all resources)
+- `Yakety-macos.zip` - Compressed DMG for faster upload/download
+
+**Windows:**
+- `yakety-cli-windows.zip` - CLI tools (yakety-cli.exe, models, menubar.png, recorder.exe, transcribe.exe)
+- `Yakety-windows.zip` - App bundle (Yakety.exe, models, menubar.png, recorder.exe, transcribe.exe)
 
 ### Windows
 ```
