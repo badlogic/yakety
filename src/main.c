@@ -64,7 +64,7 @@ static void* load_model_async(void* arg) {
         log_error("Failed to initialize transcription");
         return (void*)0; // Return 0 for failure
     }
-    
+
     // Set language from config
     const char* language = config_get_string(config, "language");
     if (language) {
@@ -94,7 +94,7 @@ static void delayed_quit_callback(void* arg) {
 // Called when model loading completes
 static void on_model_loaded(void* result) {
     bool success = (intptr_t)result != 0;
-    
+
     log_info("Model loading completed at %.3f seconds (success=%d)", utils_now(), success);
 
     if (!success) {
@@ -207,35 +207,22 @@ static void on_key_release(void* userdata) {
             log_info("⏱️  Full transcription pipeline took: %.0f ms", transcribe_duration * 1000.0);
 
             if (text && strlen(text) > 0) {
-                // Process the transcription
-                char* trimmed = text;
-                while (*trimmed == ' ') trimmed++;
+                // Text is already cleaned and has trailing space from transcription_process
+                double clipboard_start = utils_now();
+                clipboard_copy(text);
+                clipboard_paste();
+                double clipboard_duration = utils_now() - clipboard_start;
 
-                if (strlen(trimmed) > 0) {
-                    // Add space and copy to clipboard
-                    size_t len = strlen(trimmed) + 2;
-                    char* with_space = malloc(len);
-                    snprintf(with_space, len, "%s ", trimmed);
+                log_info("📝 \"%s\"", text);
+                log_info("✅ Text pasted! (clipboard operations took %.0f ms)", clipboard_duration * 1000.0);
 
-                    double clipboard_start = utils_now();
-                    clipboard_copy(with_space);
-                    clipboard_paste();
-                    double clipboard_duration = utils_now() - clipboard_start;
-
-                    log_info("📝 \"%s\"", trimmed);
-                    log_info("✅ Text pasted! (clipboard operations took %.0f ms)", clipboard_duration * 1000.0);
-                    
-                    double total_time = utils_now() - stop_start;
-                    log_info("⏱️  Total time from stop to paste: %.0f ms", total_time * 1000.0);
-
-                    free(with_space);
-                } else {
-                    log_info("⚠️  No speech detected");
-                }
+                double total_time = utils_now() - stop_start;
+                log_info("⏱️  Total time from stop to paste: %.0f ms", total_time * 1000.0);
 
                 free(text);
             } else {
                 log_info("⚠️  No speech detected");
+                if (text) free(text);
             }
 
             free(samples);
@@ -245,46 +232,6 @@ static void on_key_release(void* userdata) {
 
 #ifdef YAKETY_TRAY_APP
 static MenuSystem* g_menu = NULL;
-static int g_launch_menu_index = -1;
-
-static void menu_about(void) {
-    dialog_info("About Yakety",
-        "Yakety v1.0\n"
-        "Voice-to-text input for any application\n\n"
-        #ifdef _WIN32
-        "Hold Right Ctrl key to record,\n"
-        #else
-        "Hold FN key to record,\n"
-        #endif
-        "release to transcribe and paste.\n\n"
-        "© 2025 Mario Zechner");
-}
-
-static void menu_licenses(void) {
-    dialog_info("Licenses",
-        "This software includes:\n"
-        "- Whisper.cpp by ggml authors (MIT License)\n"
-        "- ggml by ggml authors (MIT License)\n"
-        "- Whisper base.en model by OpenAI (MIT License)\n"
-        "- miniaudio by David Reid (Public Domain)\n\n"
-        "See LICENSES.md for full details.");
-}
-#endif // YAKETY_TRAY_APP
-
-#ifdef YAKETY_TRAY_APP
-// Helper to save key combination to config
-static void save_key_combination(Config* config, const KeyCombination* combo) {
-    char buffer[256] = {0};
-    for (int i = 0; i < combo->count; i++) {
-        if (i > 0) strcat(buffer, ";");
-        char pair[32];
-        snprintf(pair, sizeof(pair), "%X:%X", combo->keys[i].code, combo->keys[i].flags);
-        strcat(buffer, pair);
-    }
-    config_set_string(config, "KeyCombo", buffer);
-    
-    // Note: Old format keys will be ignored when new format exists
-}
 #endif
 
 // Helper to load key combination from config
@@ -295,7 +242,7 @@ static bool load_key_combination(Config* config, KeyCombination* combo) {
         combo->count = 0;
         char* copy = strdup(key_str);
         char* token = strtok(copy, ";");
-        
+
         while (token && combo->count < 4) {
             unsigned int code, flags;
             if (sscanf(token, "%x:%x", &code, &flags) == 2) {
@@ -311,75 +258,11 @@ static bool load_key_combination(Config* config, KeyCombination* combo) {
     return false;
 }
 
-#ifdef YAKETY_TRAY_APP
-static void menu_configure_hotkey(void) {
-    KeyCombination combo;
-    bool result = dialog_keycombination_capture(
-        "Configure Hotkey",
-        "Click in the box below and press your desired key combination:",
-        &combo
-    );
-    
-    if (result) {
-        // Build display message
-        char message[256] = "Hotkey configured:\n";
-        for (int i = 0; i < combo.count; i++) {
-            char key_info[128];
-            #ifdef _WIN32
-            snprintf(key_info, sizeof(key_info), "Key %d: scancode=0x%02X, extended=%d\n", 
-                    i + 1, combo.keys[i].code, combo.keys[i].flags);
-            #else
-            // macOS format - show keycode and modifier flags
-            snprintf(key_info, sizeof(key_info), "Key %d: keycode=%d, modifiers=0x%X\n", 
-                    i + 1, combo.keys[i].code, combo.keys[i].flags);
-            #endif
-            strcat(message, key_info);
-        }
-        dialog_info("Hotkey Configured", message);
-        
-        // Update the keylogger to monitor this combination
-        keylogger_set_combination(&combo);
-        
-        // Save to config
-        if (g_config) {
-            save_key_combination(g_config, &combo);
-            config_save(g_config);
-        }
-    }
-}
-#endif // YAKETY_TRAY_APP
-
-#ifdef YAKETY_TRAY_APP
-static void menu_toggle_launch_at_login(void) {
-    bool is_enabled = utils_is_launch_at_login_enabled();
-    bool success = utils_set_launch_at_login(!is_enabled);
-
-    if (success) {
-        const char* status = is_enabled ? "disabled" : "enabled";
-        char message[256];
-        snprintf(message, sizeof(message), "Launch at login has been %s.", status);
-        dialog_info("Launch Settings", message);
-
-        // Update the menu item title
-        if (g_menu && g_launch_menu_index >= 0) {
-            const char* new_label = is_enabled ? "Enable Launch at Login" : "Disable Launch at Login";
-            menu_update_item(g_menu, g_launch_menu_index, new_label);
-        }
-    } else {
-        dialog_error("Launch Settings", "Failed to change launch at login setting.");
-    }
-}
-
-static void menu_quit(void) {
-    g_running = false;
-    app_quit();
-}
-#endif // YAKETY_TRAY_APP
 
 // Called when app is ready - for both CLI and tray apps
 static void on_app_ready(void) {
     log_info("on_app_ready called - starting model loading (%.0f ms since app start)", utils_now() * 1000.0);
-    
+
     // Show loading overlay
     if (config_get_bool(g_config, "show_notifications", true)) {
         overlay_show("Loading model");
@@ -393,29 +276,14 @@ static void on_app_ready(void) {
 static void continue_app_initialization(void) {
 
     #ifdef YAKETY_TRAY_APP
-    // Create and show menu for tray apps
-    g_menu = menu_create();
+    // Initialize menu system and create menu for tray apps
+    menu_init(g_config, &g_running);
+    g_menu = menu_setup();
     if (!g_menu) {
         log_error("Failed to create menu");
         app_quit();
         return;
     }
-
-    menu_add_item(g_menu, "About Yakety", menu_about);
-    menu_add_item(g_menu, "Licenses", menu_licenses);
-    menu_add_separator(g_menu);
-    menu_add_item(g_menu, "Configure Hotkey", menu_configure_hotkey);
-    menu_add_separator(g_menu);
-
-    // Add launch at login toggle and track its index
-    const char* launch_label = utils_is_launch_at_login_enabled()
-        ? "Disable Launch at Login"
-        : "Enable Launch at Login";
-    g_launch_menu_index = g_menu->item_count;  // Store the index before adding
-    menu_add_item(g_menu, launch_label, menu_toggle_launch_at_login);
-
-    menu_add_separator(g_menu);
-    menu_add_item(g_menu, "Quit", menu_quit);
 
     if (menu_show(g_menu) != 0) {
         log_error("Failed to show menu");
@@ -434,7 +302,7 @@ static void continue_app_initialization(void) {
         if (keylogger_init(on_key_press, on_key_release, g_state) == 0) {
             keylogger_started = true;
             log_info("✅ Keylogger started successfully");
-            
+
             // Load saved hotkey from config
             if (g_config) {
                 KeyCombination combo;
@@ -519,7 +387,7 @@ static const char* parse_cli_args(int argc, char** argv) {
     if (argc <= 1) {
         return NULL;
     }
-    
+
     // Check for help
     if (strcmp(argv[1], "--help") == 0 || strcmp(argv[1], "-h") == 0) {
         printf("Usage: %s [model_path | --model <path>]\n", argv[0]);
@@ -529,19 +397,19 @@ static const char* parse_cli_args(int argc, char** argv) {
         printf("  -h, --help        Show this help message\n");
         exit(0);
     }
-    
+
     // Check for --model flag
     for (int i = 1; i < argc - 1; i++) {
         if (strcmp(argv[i], "--model") == 0) {
             return argv[i + 1];
         }
     }
-    
+
     // If no --model flag and first arg doesn't start with -, treat it as model path
     if (argv[1][0] != '-') {
         return argv[1];
     }
-    
+
     return NULL;
 }
 #endif
@@ -584,7 +452,7 @@ int APP_MAIN(int argc, char** argv) {
         log_cleanup();
         return 1;
     }
-    
+
     #ifndef YAKETY_TRAY_APP
     // For CLI version, override model path if provided
     if (custom_model_path) {
@@ -643,7 +511,7 @@ int APP_MAIN(int argc, char** argv) {
     g_state = &state;
 
     log_info("Starting app_run() at %.3f seconds", utils_now());
-    
+
     // Run the app
     app_run();
 

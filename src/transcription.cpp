@@ -133,7 +133,11 @@ char* transcription_process(const float* audio_data, int n_samples, int sample_r
     const int n_segments = whisper_full_n_segments(ctx);
     if (n_segments == 0) {
         log_info("⚠️  No speech detected\n");
-        return strdup("");
+        char* empty_result = (char*)malloc(1);
+        if (empty_result) {
+            empty_result[0] = '\0';
+        }
+        return empty_result;
     }
 
     // Calculate total length needed
@@ -146,8 +150,8 @@ char* transcription_process(const float* audio_data, int n_samples, int sample_r
         }
     }
 
-    // Allocate buffer with extra space for processing
-    char* result = (char*)malloc(total_len + 1);
+    // Allocate buffer with extra space for processing and trailing space
+    char* result = (char*)malloc(total_len + 2); // +1 for null terminator, +1 for trailing space
     if (!result) {
         log_error("ERROR: Failed to allocate memory for transcription\n");
         return NULL;
@@ -217,6 +221,11 @@ char* transcription_process(const float* audio_data, int n_samples, int sample_r
         read++;
     }
     *write = '\0';
+
+    // Add trailing space for convenient pasting (unless result is empty)
+    if (strlen(result) > 0) {
+        strcat(result, " ");
+    }
 
     double total_duration = utils_now() - total_start;
 

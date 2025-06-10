@@ -1,0 +1,137 @@
+---
+title: Yakety CLI App Flow - Main Thread vs Auxiliary Threads  
+---
+flowchart TD
+    subgraph MT ["Main Thread"]
+        A[App Start] --> B[Parse Command Line Args]
+        B --> C{Help Requested?}
+        C -->|Yes| D[Show Help]
+        D --> E[Exit]
+        
+        C -->|No| F[Initialize Logging]
+        F --> G[Load Configuration]
+        G --> H{Custom Model Path?}
+        H -->|Yes| I[Override Model in Config]
+        H -->|No| J[Initialize App Framework]
+        I --> J
+        
+        J --> K[Initialize Overlay]
+        K --> L[Create Audio Recorder]
+        L --> M[Start App Run Loop]
+        M --> N[on_app_ready callback]
+        
+        N --> O{Show Loading Overlay}
+        O --> P[Start Model Loading Task]
+        P --> Q[Wait for Model Loading]
+        
+        Q --> R{Model Load Success?}
+        R -->|No| S{First Attempt?}
+        S -->|Yes| T[Show Fallback Message]
+        T --> U[Clear Model Config]
+        U --> V[Schedule Retry Task]
+        V --> Q
+        
+        S -->|No| W[Show Error Message]
+        W --> X[Schedule Quit Task]
+        X --> Y[Exit]
+        
+        R -->|Yes| Z[Hide Loading Overlay]
+        Z --> AA[Initialize Keylogger]
+        
+        AA --> BB{Keylogger Success?}
+        BB -->|No| CC{macOS?}
+        CC -->|Yes| DD[Log Permission Error]
+        DD --> Y
+        CC -->|No| EE[Log Keylogger Error]
+        EE --> Y
+        
+        BB -->|Yes| FF[Load Saved Hotkey]
+        FF --> GG[Set Hotkey Combination]
+        GG --> HH[Ready - Listening for Hotkey]
+        
+        HH --> II{Hotkey Pressed?}
+        II -->|Yes| JJ[Start Recording]
+        JJ --> KK[Show Recording Overlay]
+        KK --> LL{Hotkey Released?}
+        LL -->|Yes| MM[Stop Recording]
+        MM --> NN[Get Audio Samples]
+        NN --> OO[Start Transcription Task]
+        OO --> PP[Show Transcribing Overlay]
+        PP --> QQ[Wait for Transcription]
+        
+        QQ --> RR{Text Found?}
+        RR -->|Yes| SS[Copy to Clipboard]
+        SS --> TT[Paste Text]
+        TT --> UU[Hide Overlay]
+        RR -->|No| VV[Log No Speech]
+        VV --> UU
+        UU --> HH
+        
+        LL -->|No| KK
+        II -->|No| WW{Signal Received?}
+        WW -->|Yes| Y
+        WW -->|No| HH
+    end
+    
+    subgraph AT ["Auxiliary Threads"]
+        A1[Model Loading Task]
+        A2[Load Whisper Model]
+        A3[Initialize Transcription]
+        A4[Set Language]
+        A5[Return Success/Failure]
+        
+        B1[Transcription Task]
+        B2[Process Audio Samples]
+        B3[Run Whisper Inference]
+        B4[Clean Text Output]
+        B5[Add Trailing Space]
+        B6[Return Transcribed Text]
+        
+        C1[Delayed Tasks]
+        C2[Retry Model Loading]
+        C3[Quit Application]
+    end
+    
+    subgraph SYS ["System Events"]
+        D1[Keyboard Events]
+        D2[Signal Handlers SIGINT/SIGTERM]
+        D3[Command Line Input]
+    end
+    
+    %% Connections between threads
+    P -.-> A1
+    A1 --> A2
+    A2 --> A3
+    A3 --> A4
+    A4 --> A5
+    A5 -.-> R
+    
+    OO -.-> B1
+    B1 --> B2
+    B2 --> B3
+    B3 --> B4
+    B4 --> B5
+    B5 --> B6
+    B6 -.-> RR
+    
+    V -.-> C1
+    X -.-> C1
+    C1 --> C2
+    C1 --> C3
+    C2 -.-> Q
+    C3 -.-> Y
+    
+    D1 -.-> II
+    D2 -.-> WW
+    D3 -.-> B
+    
+    %% Styling
+    classDef mainThread fill:#e1f5fe
+    classDef auxThread fill:#f3e5f5
+    classDef systemEvent fill:#e8f5e8
+    classDef exitNode fill:#ffebee
+    
+    class A,B,C,D,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Z,AA,BB,CC,DD,EE,FF,GG,HH,II,JJ,KK,LL,MM,NN,OO,PP,QQ,RR,SS,TT,UU,VV,WW mainThread
+    class A1,A2,A3,A4,A5,B1,B2,B3,B4,B5,B6,C1,C2,C3 auxThread
+    class D1,D2,D3 systemEvent
+    class E,Y exitNode

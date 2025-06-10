@@ -82,6 +82,7 @@ target_include_directories(platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 set(BUSINESS_SOURCES
     src/audio.c
     src/transcription.cpp
+    src/menu.c
 )
 
 # Create yakety CLI executable

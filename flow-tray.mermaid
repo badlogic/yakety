@@ -1,0 +1,145 @@
+---
+title: Yakety Tray App Flow - Main Thread vs Auxiliary Threads
+---
+flowchart TD
+    subgraph MT ["Main Thread"]
+        A[App Start] --> B[Initialize Logging]
+        B --> C[Load Configuration]
+        C --> D[Initialize App Framework]
+        D --> E[Initialize Overlay]
+        E --> F[Create Audio Recorder]
+        F --> G[Start App Run Loop]
+        G --> H[on_app_ready callback]
+        
+        H --> I{Show Loading Overlay}
+        I --> J[Start Model Loading Task]
+        J --> K[Wait for Model Loading]
+        
+        K --> L{Model Load Success?}
+        L -->|No| M{First Attempt?}
+        M -->|Yes| N[Show Fallback Message]
+        N --> O[Clear Model Config]
+        O --> P[Schedule Retry Task]
+        P --> K
+        
+        M -->|No| Q[Show Error Message]
+        Q --> R[Schedule Quit Task]
+        R --> S[Quit App]
+        
+        L -->|Yes| T[Hide Loading Overlay]
+        T --> U[Initialize Menu System]
+        U --> V[Create Menu Items]
+        V --> W[Show System Tray Menu]
+        W --> X[Initialize Keylogger]
+        
+        X --> Y{Keylogger Success?}
+        Y -->|No| Z{macOS?}
+        Z -->|Yes| AA[Request Accessibility Permission]
+        AA --> BB{Permission Granted?}
+        BB -->|Yes| X
+        BB -->|No| S
+        Z -->|No| S
+        
+        Y -->|Yes| CC[Load Saved Hotkey]
+        CC --> DD[Set Hotkey Combination]
+        DD --> EE{First Run?}
+        EE -->|Yes| FF[Show Welcome Dialog]
+        FF --> GG{Auto-launch?}
+        GG -->|Yes| HH[Enable Launch at Login]
+        EE -->|No| II[Ready - Listening for Hotkey]
+        HH --> II
+        
+        II --> JJ{Hotkey Pressed?}
+        JJ -->|Yes| KK[Start Recording]
+        KK --> LL[Show Recording Overlay]
+        LL --> MM{Hotkey Released?}
+        MM -->|Yes| NN[Stop Recording]
+        NN --> OO[Get Audio Samples]
+        OO --> PP[Start Transcription Task]
+        PP --> QQ[Show Transcribing Overlay]
+        QQ --> RR[Wait for Transcription]
+        
+        RR --> SS{Text Found?}
+        SS -->|Yes| TT[Copy to Clipboard]
+        TT --> UU[Paste Text]
+        UU --> VV[Hide Overlay]
+        SS -->|No| WW[Log No Speech]
+        WW --> VV
+        VV --> II
+        
+        MM -->|No| LL
+        JJ -->|No| XX{Menu Action?}
+        XX -->|Configure Hotkey| YY[Show Hotkey Dialog]
+        YY --> ZZ[Save New Hotkey]
+        ZZ --> II
+        XX -->|About| AAA[Show About Dialog]
+        AAA --> II
+        XX -->|Toggle Launch| BBB[Update Launch Setting]
+        BBB --> II
+        XX -->|Quit| S
+        XX -->|No| II
+    end
+    
+    subgraph AT ["Auxiliary Threads"]
+        A1[Model Loading Task]
+        A2[Load Whisper Model]
+        A3[Initialize Transcription]
+        A4[Set Language]
+        A5[Return Success/Failure]
+        
+        B1[Transcription Task]
+        B2[Process Audio Samples]
+        B3[Run Whisper Inference]
+        B4[Clean Text Output]
+        B5[Add Trailing Space]
+        B6[Return Transcribed Text]
+        
+        C1[Delayed Tasks]
+        C2[Retry Model Loading]
+        C3[Quit Application]
+    end
+    
+    subgraph SYS ["System Events"]
+        D1[Keyboard Events]
+        D2[Menu Clicks]
+        D3[Dialog Responses]
+        D4[Signal Handlers]
+    end
+    
+    %% Connections between threads
+    J -.-> A1
+    A1 --> A2
+    A2 --> A3
+    A3 --> A4
+    A4 --> A5
+    A5 -.-> L
+    
+    PP -.-> B1
+    B1 --> B2
+    B2 --> B3
+    B3 --> B4
+    B4 --> B5
+    B5 --> B6
+    B6 -.-> SS
+    
+    P -.-> C1
+    R -.-> C1
+    C1 --> C2
+    C1 --> C3
+    C2 -.-> K
+    C3 -.-> S
+    
+    D1 -.-> JJ
+    D2 -.-> XX
+    D3 -.-> BB
+    D3 -.-> GG
+    D4 -.-> S
+    
+    %% Styling
+    classDef mainThread fill:#e1f5fe
+    classDef auxThread fill:#f3e5f5
+    classDef systemEvent fill:#e8f5e8
+    
+    class A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BB,CC,DD,EE,FF,GG,HH,II,JJ,KK,LL,MM,NN,OO,PP,QQ,RR,SS,TT,UU,VV,WW,XX,YY,ZZ,AAA,BBB mainThread
+    class A1,A2,A3,A4,A5,B1,B2,B3,B4,B5,B6,C1,C2,C3 auxThread
+    class D1,D2,D3,D4 systemEvent

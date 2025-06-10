@@ -35,12 +35,12 @@ static bool matches_target_combination(CGEventType type, CGEventRef event) {
                                          kCGEventFlagMaskShift | kCGEventFlagMaskCommand |
                                          kCGEventFlagMaskSecondaryFn | kCGEventFlagMaskAlphaShift);
     
-    CGEventFlags targetFlags = g_target_combo.modifier_flags & (kCGEventFlagMaskControl | kCGEventFlagMaskAlternate |
+    CGEventFlags targetFlags = g_target_combo.keys[0].flags & (kCGEventFlagMaskControl | kCGEventFlagMaskAlternate |
                                                                kCGEventFlagMaskShift | kCGEventFlagMaskCommand |
                                                                kCGEventFlagMaskSecondaryFn | kCGEventFlagMaskAlphaShift);
     
     // Check if this matches our target combination
-    bool keyMatches = (g_target_combo.keycode == 0) || (keyCode == g_target_combo.keycode);
+    bool keyMatches = (g_target_combo.keys[0].code == 0) || (keyCode == g_target_combo.keys[0].code);
     bool modifiersMatch = (relevantFlags == targetFlags);
     
     return keyMatches && modifiersMatch;
@@ -73,7 +73,7 @@ static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEve
     else if (type == kCGEventKeyUp) {
         // Key up event  
         CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-        if (keyCode == g_target_combo.keycode && keyPressed) {
+        if (keyCode == g_target_combo.keys[0].code && keyPressed) {
             keyPressed = false;
             if (g_on_release) {
                 g_on_release(g_userdata);
@@ -82,7 +82,7 @@ static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEve
     }
     else if (type == kCGEventFlagsChanged) {
         // Modifier flags changed
-        if (g_target_combo.keycode == 0) {
+        if (g_target_combo.keys[0].code == 0) {
             // Modifier-only combination
             if (currentlyMatches && !keyPressed) {
                 keyPressed = true;
@@ -171,6 +171,9 @@ void keylogger_set_combination(const KeyCombination* combo) {
 }
 
 KeyCombination keylogger_get_fn_combination(void) {
-    KeyCombination fn_combo = {0, kCGEventFlagMaskSecondaryFn};
+    KeyCombination fn_combo = {{0}};
+    fn_combo.keys[0].code = 0;  // No specific key, modifier only
+    fn_combo.keys[0].flags = kCGEventFlagMaskSecondaryFn;
+    fn_combo.count = 1;
     return fn_combo;
 }

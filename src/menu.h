@@ -3,6 +3,9 @@
 
 #include <stdbool.h>
 
+// Forward declarations
+struct Config;
+
 #define MAX_MENU_ITEMS 20
 
 typedef void (*MenuCallback)(void);
@@ -39,5 +42,11 @@ void menu_update_item(MenuSystem* menu, int index, const char* new_title);
 
 // Destroy the menu system
 void menu_destroy(MenuSystem* menu);
+
+// Initialize menu system with external state (call before menu_setup)
+void menu_init(struct Config* config, volatile bool* running);
+
+// Create and configure the application menu with all standard items
+MenuSystem* menu_setup(void);
 
 #endif // MENU_H
