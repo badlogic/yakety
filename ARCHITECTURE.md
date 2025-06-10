@@ -208,8 +208,52 @@ while (InterlockedOr(&ctx.completed, 0) == 0) {
 
 ### API Functions
 
-- `app_execute_async_blocking(work_fn, arg)` - Execute async work, block with event pumping
+- `app_execute_async_blocking(work_fn, arg)` - Execute async work, block with event pumping (**NOT reentrant**)
+- `app_execute_async_blocking_all(tasks[], args[], count)` - Execute multiple async tasks concurrently (Promise.all() equivalent)
 - `app_sleep_responsive(milliseconds)` - Sleep while keeping UI responsive
+
+### Important Constraints
+
+**`app_execute_async_blocking()` is NOT reentrant** - it cannot be called from:
+- Event handlers (menu callbacks, key events, etc.)
+- Completion callbacks from other async operations  
+- Any code that runs during event pumping
+
+This is by design - the function pumps the main event loop and only one blocking operation can be active at a time. For concurrent execution, use `app_execute_async_blocking_all()` instead.
+
+### Concurrent Execution (Promise.all() Equivalent)
+
+For scenarios where multiple independent async operations can run in parallel:
+
+```c
+// Example: Load multiple models concurrently
+static void* load_base_model(void* arg) { /* ... */ }
+static void* load_large_model(void* arg) { /* ... */ }
+static void* verify_audio_devices(void* arg) { /* ... */ }
+
+// Set up concurrent tasks
+async_work_fn tasks[] = { load_base_model, load_large_model, verify_audio_devices };
+void* args[] = { NULL, NULL, NULL };
+
+// Execute all tasks concurrently while keeping UI responsive
+void** results = app_execute_async_blocking_all(tasks, args, 3);
+
+if (results) {
+    // Check individual results
+    bool base_loaded = (bool)(intptr_t)results[0];
+    bool large_loaded = (bool)(intptr_t)results[1]; 
+    bool audio_ready = (bool)(intptr_t)results[2];
+    
+    free(results); // Caller must free results array
+}
+```
+
+**Benefits of Concurrent Execution:**
+- **Parallelism** - Multiple CPU-intensive tasks run simultaneously
+- **Faster Initialization** - Reduces total startup time
+- **UI Responsiveness** - Event pumping keeps overlays and user interactions working
+- **Simple Error Handling** - Check individual results after all complete
+- **Resource Efficiency** - Better CPU utilization across cores
 
 This pattern is particularly useful for initialization sequences, file operations, or any async work where you want the simplicity of blocking code without freezing the UI.
 

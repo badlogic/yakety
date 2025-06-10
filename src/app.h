@@ -69,6 +69,13 @@ bool app_is_running(void);
 // Blocking async execution - pumps events to keep UI responsive while waiting
 void* app_execute_async_blocking(async_work_fn work, void* arg);
 
+// Promise.all() equivalent - execute multiple async tasks concurrently
+// tasks: array of work functions
+// args: array of arguments (one per task)
+// count: number of tasks
+// Returns: array of results (caller must free), NULL on failure
+void** app_execute_async_blocking_all(async_work_fn* tasks, void** args, int count);
+
 // Responsive sleep that pumps events to keep UI responsive
 void app_sleep_responsive(int milliseconds);
 

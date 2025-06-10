@@ -40,7 +40,14 @@ static bool matches_target_combination(CGEventType type, CGEventRef event) {
                                                                kCGEventFlagMaskSecondaryFn | kCGEventFlagMaskAlphaShift);
     
     // Check if this matches our target combination
-    bool keyMatches = (g_target_combo.keys[0].code == 0) || (keyCode == g_target_combo.keys[0].code);
+    bool keyMatches;
+    if (g_target_combo.keys[0].code == 0) {
+        // Modifier-only combination (like FN key) - only match when NO specific key is pressed
+        keyMatches = (keyCode == 0);
+    } else {
+        // Specific key combination - match the exact key
+        keyMatches = (keyCode == g_target_combo.keys[0].code);
+    }
     bool modifiersMatch = (relevantFlags == targetFlags);
     
     return keyMatches && modifiersMatch;
@@ -71,14 +78,18 @@ static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEve
         }
     }
     else if (type == kCGEventKeyUp) {
-        // Key up event  
-        CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
-        if (keyCode == g_target_combo.keys[0].code && keyPressed) {
-            keyPressed = false;
-            if (g_on_release) {
-                g_on_release(g_userdata);
+        // Key up event
+        if (g_target_combo.keys[0].code != 0) {
+            // Specific key combination (not modifier-only)
+            CGKeyCode keyCode = (CGKeyCode)CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
+            if (keyCode == g_target_combo.keys[0].code && keyPressed) {
+                keyPressed = false;
+                if (g_on_release) {
+                    g_on_release(g_userdata);
+                }
             }
         }
+        // For modifier-only combinations (like FN), handle in kCGEventFlagsChanged section
     }
     else if (type == kCGEventFlagsChanged) {
         // Modifier flags changed
