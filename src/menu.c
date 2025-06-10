@@ -11,11 +11,9 @@
 #include "app.h"
 
 // Static variables for menu management
-static bool* s_running = NULL;
 
 // Global variables for menu management
-static MenuSystem* g_menu = NULL;
-static int g_launch_menu_index = -1;
+int g_launch_menu_index = -1;
 
 
 // Menu callback functions
@@ -87,9 +85,9 @@ static void menu_toggle_launch_at_login(void) {
         dialog_info("Launch Settings", message);
 
         // Update the menu item title
-        if (g_menu && g_launch_menu_index >= 0) {
+        if (g_launch_menu_index >= 0) {
             const char* new_label = is_enabled ? "Enable Launch at Login" : "Disable Launch at Login";
-            menu_update_item(g_menu, g_launch_menu_index, new_label);
+            menu_update_item(g_launch_menu_index, new_label);
         }
     } else {
         dialog_error("Launch Settings", "Failed to change launch at login setting.");
@@ -97,37 +95,29 @@ static void menu_toggle_launch_at_login(void) {
 }
 
 static void menu_quit(void) {
-    utils_atomic_write_bool(s_running, false);
     app_quit();
 }
 
-// Initialize menu system with external state
-void menu_init(bool* running) {
-    s_running = running;
-}
-
-// Create and configure the application menu
-MenuSystem* menu_setup(void) {
-    g_menu = menu_create();
-    if (!g_menu) {
-        return NULL;
+// Shared menu setup logic (used by platform implementations)
+int menu_setup_items(MenuSystem* menu) {
+    if (!menu) {
+        return -1;
     }
 
-    menu_add_item(g_menu, "About Yakety", menu_about);
-    menu_add_item(g_menu, "Licenses", menu_licenses);
-    menu_add_separator(g_menu);
-    menu_add_item(g_menu, "Configure Hotkey", menu_configure_hotkey);
-    menu_add_separator(g_menu);
+    menu_add_item(menu, "About Yakety", menu_about);
+    menu_add_item(menu, "Licenses", menu_licenses);
+    menu_add_separator(menu);
+    menu_add_item(menu, "Configure Hotkey", menu_configure_hotkey);
+    menu_add_separator(menu);
 
     // Add launch at login toggle and track its index
     const char* launch_label = utils_is_launch_at_login_enabled()
         ? "Disable Launch at Login"
         : "Enable Launch at Login";
-    g_launch_menu_index = g_menu->item_count;  // Store the index before adding
-    menu_add_item(g_menu, launch_label, menu_toggle_launch_at_login);
+    g_launch_menu_index = menu_add_item(menu, launch_label, menu_toggle_launch_at_login);
 
-    menu_add_separator(g_menu);
-    menu_add_item(g_menu, "Quit", menu_quit);
+    menu_add_separator(menu);
+    menu_add_item(menu, "Quit", menu_quit);
 
-    return g_menu;
+    return 0;
 }

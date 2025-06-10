@@ -10,7 +10,7 @@ typedef struct {
     const char* version;
     bool is_console;
     AppReadyCallback on_ready;
-    bool running;
+    bool running;  // Application running state
 } AppConfig;
 
 static AppConfig g_config = {0};
@@ -54,7 +54,7 @@ int app_init(const char* name, const char* version, bool is_console, AppReadyCal
     g_config.version = version;
     g_config.is_console = is_console;
     g_config.on_ready = on_ready;
-    g_config.running = true;
+    utils_atomic_write_bool(&g_config.running, true);
 
     // Initialize NSApplication
     [NSApplication sharedApplication];
@@ -113,4 +113,8 @@ void app_quit(void) {
 
 bool app_is_console(void) {
     return g_config.is_console;
+}
+
+bool app_is_running(void) {
+    return utils_atomic_read_bool(&g_config.running);
 }

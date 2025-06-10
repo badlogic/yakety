@@ -3,7 +3,7 @@
 
 #include <stdbool.h>
 
-// Entry point macro
+// Entry point macro - handles all platform/build type variations
 #ifdef _WIN32
     #ifdef YAKETY_TRAY_APP
         // Forward declarations for Windows types (only if not already included)
@@ -12,13 +12,34 @@
             typedef void* LPSTR;
             #define WINAPI __stdcall
         #endif
-        #define APP_MAIN WinMain
+        #define APP_ENTRY_POINT \
+            int WINAPI WinMain(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) { \
+                (void)hInstance; (void)hPrevInstance; (void)lpCmdLine; (void)nCmdShow; \
+                return app_main(0, NULL, false); \
+            }
     #else
-        #define APP_MAIN main
+        #define APP_ENTRY_POINT \
+            int main(int argc, char** argv) { \
+                return app_main(argc, argv, true); \
+            }
     #endif
 #else
-    #define APP_MAIN main
+    #ifdef YAKETY_TRAY_APP
+        #define APP_ENTRY_POINT \
+            int main(int argc, char** argv) { \
+                (void)argc; (void)argv; \
+                return app_main(0, NULL, false); \
+            }
+    #else
+        #define APP_ENTRY_POINT \
+            int main(int argc, char** argv) { \
+                return app_main(argc, argv, true); \
+            }
+    #endif
 #endif
+
+// Forward declaration for app_main
+int app_main(int argc, char** argv, bool is_console);
 
 typedef void (*AppReadyCallback)(void);
 
@@ -36,5 +57,8 @@ void app_quit(void);
 
 // Check if the app is running in console mode
 bool app_is_console(void);
+
+// Check if the app is running
+bool app_is_running(void);
 
 #endif // APP_H

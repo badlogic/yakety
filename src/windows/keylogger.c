@@ -3,19 +3,25 @@
 #include <windows.h>
 #include <stdbool.h>
 #include <string.h>
+#include <stdlib.h>
 
-// Global variables
-static HHOOK g_keyboard_hook = NULL;
-static KeyCallback g_on_press = NULL;
-static KeyCallback g_on_release = NULL;
-static void* g_userdata = NULL;
-static bool g_paused = false;
+// Keylogger state structure
+typedef struct {
+    // Hook and callback state (main thread only)
+    HHOOK keyboard_hook;
+    KeyCallback on_press;
+    KeyCallback on_release;
+    void* userdata;
+    
+    // Keylogger state (all accessed from main thread)
+    bool paused;
+    KeyCombination target_combo;
+    bool combo_pressed;
+    int pressed_count;
+    KeyInfo pressed_keys[4];
+} KeyloggerState;
 
-// Key combination tracking
-static KeyCombination g_target_combo = {{0}, 0}; // Will be initialized properly
-static bool g_combo_pressed = false;
-static KeyInfo g_pressed_keys[4] = {{0}, {0}, {0}, {0}};
-static int g_pressed_count = 0;
+static KeyloggerState* g_keylogger = NULL;
 
 // Check if two key infos match
 static bool key_info_matches(const KeyInfo* a, const KeyInfo* b) {
@@ -24,9 +30,11 @@ static bool key_info_matches(const KeyInfo* a, const KeyInfo* b) {
 
 // Check if a key is currently in our pressed list
 static bool is_key_pressed(DWORD scanCode, DWORD flags) {
+    if (!g_keylogger) return false;
+    
     uint32_t extended = (flags & LLKHF_EXTENDED) ? 1 : 0;
-    for (int i = 0; i < g_pressed_count; i++) {
-        if (g_pressed_keys[i].code == scanCode && g_pressed_keys[i].flags == extended) {
+    for (int i = 0; i < g_keylogger->pressed_count; i++) {
+        if (g_keylogger->pressed_keys[i].code == scanCode && g_keylogger->pressed_keys[i].flags == extended) {
             return true;
         }
     }
@@ -35,23 +43,27 @@ static bool is_key_pressed(DWORD scanCode, DWORD flags) {
 
 // Add a key to pressed list
 static void add_pressed_key(DWORD scanCode, DWORD flags) {
-    if (g_pressed_count < 4 && !is_key_pressed(scanCode, flags)) {
-        g_pressed_keys[g_pressed_count].code = scanCode;
-        g_pressed_keys[g_pressed_count].flags = (flags & LLKHF_EXTENDED) ? 1 : 0;
-        g_pressed_count++;
+    if (!g_keylogger) return;
+    
+    if (g_keylogger->pressed_count < 4 && !is_key_pressed(scanCode, flags)) {
+        g_keylogger->pressed_keys[g_keylogger->pressed_count].code = scanCode;
+        g_keylogger->pressed_keys[g_keylogger->pressed_count].flags = (flags & LLKHF_EXTENDED) ? 1 : 0;
+        g_keylogger->pressed_count++;
     }
 }
 
 // Remove a key from pressed list
 static void remove_pressed_key(DWORD scanCode, DWORD flags) {
+    if (!g_keylogger) return;
+    
     uint32_t extended = (flags & LLKHF_EXTENDED) ? 1 : 0;
-    for (int i = 0; i < g_pressed_count; i++) {
-        if (g_pressed_keys[i].code == scanCode && g_pressed_keys[i].flags == extended) {
+    for (int i = 0; i < g_keylogger->pressed_count; i++) {
+        if (g_keylogger->pressed_keys[i].code == scanCode && g_keylogger->pressed_keys[i].flags == extended) {
             // Shift remaining keys
-            for (int j = i; j < g_pressed_count - 1; j++) {
-                g_pressed_keys[j] = g_pressed_keys[j + 1];
+            for (int j = i; j < g_keylogger->pressed_count - 1; j++) {
+                g_keylogger->pressed_keys[j] = g_keylogger->pressed_keys[j + 1];
             }
-            g_pressed_count--;
+            g_keylogger->pressed_count--;
             break;
         }
     }
@@ -59,16 +71,18 @@ static void remove_pressed_key(DWORD scanCode, DWORD flags) {
 
 // Check if current pressed keys match the target combination
 static bool check_combination_match(void) {
+    if (!g_keylogger) return false;
+    
     // Must have exact number of keys
-    if (g_pressed_count != g_target_combo.count) {
+    if (g_keylogger->pressed_count != g_keylogger->target_combo.count) {
         return false;
     }
     
     // Check if all target keys are pressed
-    for (int i = 0; i < g_target_combo.count; i++) {
+    for (int i = 0; i < g_keylogger->target_combo.count; i++) {
         bool found = false;
-        for (int j = 0; j < g_pressed_count; j++) {
-            if (key_info_matches(&g_target_combo.keys[i], &g_pressed_keys[j])) {
+        for (int j = 0; j < g_keylogger->pressed_count; j++) {
+            if (key_info_matches(&g_keylogger->target_combo.keys[i], &g_keylogger->pressed_keys[j])) {
                 found = true;
                 break;
             }
@@ -83,7 +97,7 @@ static bool check_combination_match(void) {
 
 // Low-level keyboard hook procedure
 LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
-    if (nCode >= 0 && !g_paused) {
+    if (nCode >= 0 && g_keylogger && !g_keylogger->paused) {
         KBDLLHOOKSTRUCT* kbdStruct = (KBDLLHOOKSTRUCT*)lParam;
         bool keyDown = (wParam == WM_KEYDOWN || wParam == WM_SYSKEYDOWN);
         bool keyUp = (wParam == WM_KEYUP || wParam == WM_SYSKEYUP);
@@ -93,20 +107,20 @@ LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
             add_pressed_key(kbdStruct->scanCode, kbdStruct->flags);
             
             // Check if combination is now complete
-            if (check_combination_match() && !g_combo_pressed) {
-                g_combo_pressed = true;
-                if (g_on_press) {
-                    g_on_press(g_userdata);
+            if (check_combination_match() && !g_keylogger->combo_pressed) {
+                g_keylogger->combo_pressed = true;
+                if (g_keylogger->on_press) {
+                    g_keylogger->on_press(g_keylogger->userdata);
                 }
             }
         } else if (keyUp) {
             // Check if we're releasing a key from our combination
             bool was_combo_key = false;
-            if (g_combo_pressed) {
+            if (g_keylogger->combo_pressed) {
                 uint32_t extended = (kbdStruct->flags & LLKHF_EXTENDED) ? 1 : 0;
-                for (int i = 0; i < g_target_combo.count; i++) {
-                    if (g_target_combo.keys[i].code == kbdStruct->scanCode && 
-                        g_target_combo.keys[i].flags == extended) {
+                for (int i = 0; i < g_keylogger->target_combo.count; i++) {
+                    if (g_keylogger->target_combo.keys[i].code == kbdStruct->scanCode && 
+                        g_keylogger->target_combo.keys[i].flags == extended) {
                         was_combo_key = true;
                         break;
                     }
@@ -117,31 +131,43 @@ LRESULT CALLBACK keyboard_proc(int nCode, WPARAM wParam, LPARAM lParam) {
             remove_pressed_key(kbdStruct->scanCode, kbdStruct->flags);
             
             // If we released a combo key, trigger release
-            if (was_combo_key && g_combo_pressed) {
-                g_combo_pressed = false;
-                if (g_on_release) {
-                    g_on_release(g_userdata);
+            if (was_combo_key && g_keylogger->combo_pressed) {
+                g_keylogger->combo_pressed = false;
+                if (g_keylogger->on_release) {
+                    g_keylogger->on_release(g_keylogger->userdata);
                 }
             }
         }
     }
     
     // Pass the event to the next hook
-    return CallNextHookEx(g_keyboard_hook, nCode, wParam, lParam);
+    return CallNextHookEx(g_keylogger ? g_keylogger->keyboard_hook : NULL, nCode, wParam, lParam);
 }
 
 int keylogger_init(KeyCallback on_press, KeyCallback on_release, void* userdata) {
+    if (g_keylogger) {
+        return -1; // Already initialized
+    }
+    
+    // Allocate keylogger state
+    g_keylogger = calloc(1, sizeof(KeyloggerState));
+    if (!g_keylogger) {
+        return -1;
+    }
+    
     // Store callbacks
-    g_on_press = on_press;
-    g_on_release = on_release;
-    g_userdata = userdata;
+    g_keylogger->on_press = on_press;
+    g_keylogger->on_release = on_release;
+    g_keylogger->userdata = userdata;
     
     // Install low-level keyboard hook
-    g_keyboard_hook = SetWindowsHookEx(WH_KEYBOARD_LL, keyboard_proc, GetModuleHandle(NULL), 0);
+    g_keylogger->keyboard_hook = SetWindowsHookEx(WH_KEYBOARD_LL, keyboard_proc, GetModuleHandle(NULL), 0);
     
-    if (!g_keyboard_hook) {
+    if (!g_keylogger->keyboard_hook) {
         DWORD error = GetLastError();
         log_error("Failed to install keyboard hook. Error: %lu", error);
+        free(g_keylogger);
+        g_keylogger = NULL;
         return -1;
     }
     
@@ -150,35 +176,39 @@ int keylogger_init(KeyCallback on_press, KeyCallback on_release, void* userdata)
 }
 
 void keylogger_cleanup(void) {
-    if (g_keyboard_hook) {
-        UnhookWindowsHookEx(g_keyboard_hook);
-        g_keyboard_hook = NULL;
+    if (!g_keylogger) {
+        return;
     }
     
-    g_on_press = NULL;
-    g_on_release = NULL;
-    g_userdata = NULL;
-    g_combo_pressed = false;
-    g_pressed_count = 0;
+    if (g_keylogger->keyboard_hook) {
+        UnhookWindowsHookEx(g_keylogger->keyboard_hook);
+    }
+    
+    free(g_keylogger);
+    g_keylogger = NULL;
     
     log_info("Keylogger cleaned up");
 }
 
 void keylogger_pause(void) {
-    g_paused = true;
-    log_info("Keylogger paused");
+    if (g_keylogger) {
+        g_keylogger->paused = true;
+        log_info("Keylogger paused");
+    }
 }
 
 void keylogger_resume(void) {
-    g_paused = false;
-    log_info("Keylogger resumed");
+    if (g_keylogger) {
+        g_keylogger->paused = false;
+        log_info("Keylogger resumed");
+    }
 }
 
 void keylogger_set_combination(const KeyCombination* combo) {
-    if (combo) {
-        g_target_combo = *combo;
-        g_combo_pressed = false;
-        g_pressed_count = 0;
+    if (combo && g_keylogger) {
+        g_keylogger->target_combo = *combo;
+        g_keylogger->combo_pressed = false;
+        g_keylogger->pressed_count = 0;
         
         // Log the combination for debugging
         log_info("Keylogger combination set with %d keys:", combo->count);

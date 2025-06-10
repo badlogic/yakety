@@ -7,9 +7,9 @@
 #include <string.h>
 
 static NSStatusItem* statusItem = nil;
-static MenuSystem* g_menu_system = NULL;
 static NSMenu* statusMenu = nil;
 static NSImage* statusIcon = nil;
+static bool g_menu_showing = false;
 
 @interface MenuBarDelegate : NSObject {
     MenuSystem* menuSystem;
@@ -61,36 +61,59 @@ MenuSystem* menu_create(void) {
     return menu;
 }
 
-void menu_add_item(MenuSystem* menu, const char* title, MenuCallback callback) {
+int menu_add_item(MenuSystem* menu, const char* title, MenuCallback callback) {
     if (!menu || !title || menu->item_count >= menu->max_items) {
-        return;
+        return -1;
     }
     
     MenuItem* item = &menu->items[menu->item_count];
     item->title = utils_strdup(title);
     item->callback = callback;
     item->is_separator = false;
-    menu->item_count++;
+    return menu->item_count++;
 }
 
-void menu_add_separator(MenuSystem* menu) {
+int menu_add_separator(MenuSystem* menu) {
     if (!menu || menu->item_count >= menu->max_items) {
-        return;
+        return -1;
     }
     
     MenuItem* item = &menu->items[menu->item_count];
     item->title = NULL;
     item->callback = NULL;
     item->is_separator = true;
-    menu->item_count++;
+    return menu->item_count++;
 }
 
-int menu_show(MenuSystem* menu) {
-    if (!menu || g_menu_system) {
+// Singleton menu system state
+static MenuSystem* g_menu = NULL;
+
+int menu_init(void) {
+    if (g_menu) {
+        return -1; // Already initialized
+    }
+    
+    g_menu = menu_create();
+    if (!g_menu) {
+        return -1;
+    }
+    
+    return menu_setup_items(g_menu);
+}
+
+void menu_cleanup(void) {
+    if (g_menu) {
+        menu_destroy(g_menu);
+        g_menu = NULL;
+    }
+}
+
+int menu_show(void) {
+    if (!g_menu || g_menu_showing) {
         return -1; // Already showing a menu
     }
     
-    g_menu_system = menu;
+    g_menu_showing = true;
     
     // Create a block to ensure menu creation happens on main thread
     void (^createMenuBlock)(void) = ^{
@@ -148,14 +171,14 @@ int menu_show(MenuSystem* menu) {
         
         // Create menu - already retained by alloc/init
         statusMenu = [[NSMenu alloc] init];
-        menuDelegate = [[MenuBarDelegate alloc] initWithMenuSystem:menu];
+        menuDelegate = [[MenuBarDelegate alloc] initWithMenuSystem:g_menu];
         
         // Add all menu items
-        for (int i = 0; i < menu->item_count; i++) {
-            if (menu->items[i].is_separator) {
+        for (int i = 0; i < g_menu->item_count; i++) {
+            if (g_menu->items[i].is_separator) {
                 [statusMenu addItem:[NSMenuItem separatorItem]];
             } else {
-                NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:menu->items[i].title]
+                NSMenuItem* item = [[NSMenuItem alloc] initWithTitle:[NSString stringWithUTF8String:g_menu->items[i].title]
                                                              action:@selector(handleMenuItem:)
                                                       keyEquivalent:@""];
                 [item setTarget:menuDelegate];
@@ -186,8 +209,8 @@ int menu_show(MenuSystem* menu) {
     return 0;
 }
 
-void menu_hide(MenuSystem* menu) {
-    if (!menu || menu != g_menu_system) {
+void menu_hide(void) {
+    if (!g_menu || !g_menu_showing) {
         return;
     }
     
@@ -208,22 +231,22 @@ void menu_hide(MenuSystem* menu) {
     }
     
     menuDelegate = nil;
-    g_menu_system = NULL;
+    g_menu_showing = false;
 }
 
-void menu_update_item(MenuSystem* menu, int index, const char* new_title) {
-    if (!menu || index < 0 || index >= menu->item_count || !new_title) {
+void menu_update_item(int index, const char* new_title) {
+    if (!g_menu || index < 0 || index >= g_menu->item_count || !new_title) {
         return;
     }
     
     // Update the stored title
-    if (menu->items[index].title) {
-        free((void*)menu->items[index].title);
+    if (g_menu->items[index].title) {
+        free((void*)g_menu->items[index].title);
     }
-    menu->items[index].title = utils_strdup(new_title);
+    g_menu->items[index].title = utils_strdup(new_title);
     
     // If menu is currently showing, update the actual menu item
-    if (menu == g_menu_system && statusMenu) {
+    if (g_menu_showing && statusMenu) {
         dispatch_async(dispatch_get_main_queue(), ^{
             NSMenuItem* item = [statusMenu itemAtIndex:index];
             if (item && ![item isSeparatorItem]) {
@@ -237,8 +260,8 @@ void menu_destroy(MenuSystem* menu) {
     if (!menu) return;
     
     // Hide if currently showing
-    if (menu == g_menu_system) {
-        menu_hide(menu);
+    if (g_menu_showing) {
+        menu_hide();
     }
     
     // Free all titles

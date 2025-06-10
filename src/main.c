@@ -14,9 +14,9 @@
 #include "overlay.h"
 #include "utils.h"
 #include "preferences.h"
+#include "menu.h"
 
 #ifdef YAKETY_TRAY_APP
-#include "menu.h"
 #include "dialog.h"
 #endif
 
@@ -27,7 +27,6 @@ typedef struct {
 } AppState;
 
 static AppState* g_state = NULL;
-static bool g_running = true;
 
 // Forward declarations
 static void continue_app_initialization(void);
@@ -41,7 +40,6 @@ typedef struct {
 
 static void signal_handler(int sig) {
     (void)sig;
-    utils_atomic_write_bool(&g_running, false);
     app_quit();
 }
 
@@ -227,9 +225,6 @@ static void on_key_release(void* userdata) {
     }
 }
 
-#ifdef YAKETY_TRAY_APP
-static MenuSystem* g_menu = NULL;
-#endif
 
 
 
@@ -249,26 +244,23 @@ static void on_app_ready(void) {
 // Continue with app initialization after model loads
 static void continue_app_initialization(void) {
 
-    #ifdef YAKETY_TRAY_APP
-    // Initialize menu system and create menu for tray apps
-    menu_init(&g_running);
-    g_menu = menu_setup();
-    if (!g_menu) {
-        log_error("Failed to create menu");
-        app_quit();
-        return;
-    }
+    // Initialize menu system for tray apps
+    if (!app_is_console()) {
+        if (menu_init() != 0) {
+            log_error("Failed to create menu");
+            app_quit();
+            return;
+        }
 
-    if (menu_show(g_menu) != 0) {
-        log_error("Failed to show menu");
-        menu_destroy(g_menu);
-        g_menu = NULL;
-        app_quit();
-        return;
-    }
+        if (menu_show() != 0) {
+            log_error("Failed to show menu");
+            menu_cleanup();
+            app_quit();
+            return;
+        }
 
-    log_info("Menu created successfully");
-    #endif
+        log_info("Menu created successfully");
+    }
 
     // Initialize keylogger for all apps (after run loop is active)
     bool keylogger_started = false;
@@ -356,7 +348,6 @@ static void continue_app_initialization(void) {
     #endif
 }
 
-#ifndef YAKETY_TRAY_APP
 static const char* parse_cli_args(int argc, char** argv) {
     if (argc <= 1) {
         return NULL;
@@ -386,32 +377,16 @@ static const char* parse_cli_args(int argc, char** argv) {
 
     return NULL;
 }
-#endif
 
-#ifdef _WIN32
-#ifdef YAKETY_TRAY_APP
-int WINAPI APP_MAIN(HINSTANCE hInstance, HINSTANCE hPrevInstance, LPSTR lpCmdLine, int nCmdShow) {
-    (void)hInstance;
-    (void)hPrevInstance;
-    (void)lpCmdLine;
-    (void)nCmdShow;
-#else
-int APP_MAIN(int argc, char** argv) {
-#endif
-#else
-int APP_MAIN(int argc, char** argv) {
-#endif
-
+int app_main(int argc, char** argv, bool is_console) {
     const char* custom_model_path = NULL;
     // Parse command line arguments for CLI version
-    #ifndef YAKETY_TRAY_APP
-    custom_model_path = parse_cli_args(argc, argv);
-    #else
-        #ifndef _WIN32
+    if (is_console) {
+        custom_model_path = parse_cli_args(argc, argv);
+    } else {
         (void)argc;
         (void)argv;
-        #endif
-    #endif
+    }
 
     // Initialize logging system
     log_init();
@@ -435,12 +410,6 @@ int APP_MAIN(int argc, char** argv) {
     signal(SIGTERM, signal_handler);
 
     // Initialize app
-    #ifdef YAKETY_TRAY_APP
-    bool is_console = false;
-    #else
-    bool is_console = true;
-    #endif
-    
     if (app_init("Yakety", "1.0", is_console, on_app_ready) != 0) {
         fprintf(stderr, "Failed to initialize app\n");
         return 1;
@@ -459,11 +428,7 @@ int APP_MAIN(int argc, char** argv) {
         return 1;
     }
 
-    AppState state = {
-        .recording = false,
-        .recording_start_time = 0
-    };
-
+    AppState state = {0};
     g_state = &state;
 
     log_info("Starting app_run() at %.3f seconds", utils_now());
@@ -473,11 +438,9 @@ int APP_MAIN(int argc, char** argv) {
 
     // Cleanup
     keylogger_cleanup();
-    #ifdef YAKETY_TRAY_APP
-    if (g_menu) {
-        menu_destroy(g_menu);
+    if (!app_is_console()) {
+        menu_cleanup();
     }
-    #endif
     audio_recorder_cleanup();
     transcription_cleanup();
     overlay_cleanup();
@@ -487,4 +450,6 @@ int APP_MAIN(int argc, char** argv) {
 
     return 0;
 }
+
+APP_ENTRY_POINT
 

@@ -36,7 +36,7 @@ static fnShouldAppsUseDarkMode ShouldAppsUseDarkMode = NULL;
 static HWND g_hidden_window = NULL;
 static NOTIFYICONDATAW g_tray_icon = {0};
 static HMENU g_tray_menu = NULL;
-static MenuSystem* g_menu_system = NULL;
+static bool g_menu_showing = false;
 
 static const wchar_t* WINDOW_CLASS_NAME = L"YaketyMenuWindow";
 
@@ -78,10 +78,10 @@ static LRESULT CALLBACK menu_window_proc(HWND hwnd, UINT msg, WPARAM wParam, LPA
             break;
             
         case WM_COMMAND:
-            if (g_menu_system) {
+            if (g_menu) {
                 int item_id = LOWORD(wParam) - ID_TRAY_BASE;
-                if (item_id >= 0 && item_id < g_menu_system->item_count) {
-                    MenuItem* item = &g_menu_system->items[item_id];
+                if (item_id >= 0 && item_id < g_menu->item_count) {
+                    MenuItem* item = &g_menu->items[item_id];
                     if (item->callback && !item->is_separator) {
                         item->callback();
                     }
@@ -122,39 +122,59 @@ MenuSystem* menu_create(void) {
     return menu;
 }
 
-void menu_add_item(MenuSystem* menu, const char* title, MenuCallback callback) {
+int menu_add_item(MenuSystem* menu, const char* title, MenuCallback callback) {
     if (!menu || menu->item_count >= menu->max_items) {
         log_error("Cannot add menu item: menu full or invalid");
-        return;
+        return -1;
     }
     
     MenuItem* item = &menu->items[menu->item_count];
     item->title = utils_strdup(title);
     item->callback = callback;
     item->is_separator = false;
-    menu->item_count++;
+    return menu->item_count++;
 }
 
-void menu_add_separator(MenuSystem* menu) {
+int menu_add_separator(MenuSystem* menu) {
     if (!menu || menu->item_count >= menu->max_items) {
         log_error("Cannot add separator: menu full or invalid");
-        return;
+        return -1;
     }
     
     MenuItem* item = &menu->items[menu->item_count];
     item->title = NULL;
     item->callback = NULL;
     item->is_separator = true;
-    menu->item_count++;
+    return menu->item_count++;
 }
 
-int menu_show(MenuSystem* menu) {
-    if (!menu) {
-        log_error("Invalid menu system");
+// Singleton menu system state
+static MenuSystem* g_menu = NULL;
+
+int menu_init(void) {
+    if (g_menu) {
+        return -1; // Already initialized
+    }
+    
+    g_menu = menu_create();
+    if (!g_menu) {
         return -1;
     }
     
-    g_menu_system = menu;
+    return menu_setup_items(g_menu);
+}
+
+void menu_cleanup(void) {
+    if (g_menu) {
+        menu_destroy(g_menu);
+        g_menu = NULL;
+    }
+}
+
+int menu_show(void) {
+    if (!g_menu || g_menu_showing) {
+        return -1;
+    }
     
     // Initialize dark mode support
     init_dark_mode();
@@ -204,8 +224,8 @@ int menu_show(MenuSystem* menu) {
     g_tray_menu = CreatePopupMenu();
     
     // Add menu items
-    for (int i = 0; i < menu->item_count; i++) {
-        MenuItem* item = &menu->items[i];
+    for (int i = 0; i < g_menu->item_count; i++) {
+        MenuItem* item = &g_menu->items[i];
         if (item->is_separator) {
             AppendMenuW(g_tray_menu, MF_SEPARATOR, 0, NULL);
         } else if (item->title) {
@@ -246,12 +266,13 @@ int menu_show(MenuSystem* menu) {
         return -1;
     }
     
+    g_menu_showing = true;
     log_info("Menu shown in system tray");
     return 0;
 }
 
-void menu_hide(MenuSystem* menu) {
-    if (!menu) return;
+void menu_hide(void) {
+    if (!g_menu || !g_menu_showing) return;
     
     if (g_tray_icon.hWnd) {
         Shell_NotifyIconW(NIM_DELETE, &g_tray_icon);
@@ -262,19 +283,20 @@ void menu_hide(MenuSystem* menu) {
         g_hidden_window = NULL;
     }
     
+    g_menu_showing = false;
     log_info("Menu hidden");
 }
 
-void menu_update_item(MenuSystem* menu, int index, const char* new_title) {
-    if (!menu || index < 0 || index >= menu->item_count || !new_title) {
+void menu_update_item(int index, const char* new_title) {
+    if (!g_menu || index < 0 || index >= g_menu->item_count || !new_title) {
         return;
     }
     
     // Update the stored title
-    if (menu->items[index].title) {
-        free((void*)menu->items[index].title);
+    if (g_menu->items[index].title) {
+        free((void*)g_menu->items[index].title);
     }
-    menu->items[index].title = utils_strdup(new_title);
+    g_menu->items[index].title = utils_strdup(new_title);
     
     // If menu is currently showing, update the actual menu item
     if (g_tray_menu) {
@@ -292,14 +314,17 @@ void menu_update_item(MenuSystem* menu, int index, const char* new_title) {
 void menu_destroy(MenuSystem* menu) {
     if (!menu) return;
     
-    menu_hide(menu);
+    // Hide if currently showing
+    if (g_menu_showing) {
+        menu_hide();
+    }
     
     if (g_tray_menu) {
         DestroyMenu(g_tray_menu);
         g_tray_menu = NULL;
     }
     
-    g_menu_system = NULL;
+    g_menu_showing = false;
     
     // Free menu item titles
     for (int i = 0; i < menu->item_count; i++) {

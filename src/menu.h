@@ -21,31 +21,29 @@ typedef struct {
     int max_items;
 } MenuSystem;
 
-// Create a new menu system
-MenuSystem* menu_create(void);
+// Singleton menu system API
+int menu_init(void);
+void menu_cleanup(void);
 
-// Add a menu item
-void menu_add_item(MenuSystem* menu, const char* title, MenuCallback callback);
-
-// Add a separator
-void menu_add_separator(MenuSystem* menu);
-
-// Show the menu (creates the system tray/menubar)
-int menu_show(MenuSystem* menu);
+// Show the menu (creates the system tray/menubar with standard items)
+int menu_show(void);
 
 // Hide the menu
-void menu_hide(MenuSystem* menu);
+void menu_hide(void);
 
-// Update a menu item's title
-void menu_update_item(MenuSystem* menu, int index, const char* new_title);
+// Update a menu item's title by index
+void menu_update_item(int index, const char* new_title);
 
-// Destroy the menu system
+// Internal functions (for platform implementations)
+MenuSystem* menu_create(void);
+int menu_add_item(MenuSystem* menu, const char* title, MenuCallback callback);
+int menu_add_separator(MenuSystem* menu);
 void menu_destroy(MenuSystem* menu);
 
-// Initialize menu system with external state (call before menu_setup)
-void menu_init(bool* running);
+// Shared menu setup (called by platform implementations)
+int menu_setup_items(MenuSystem* menu);
 
-// Create and configure the application menu with all standard items
-MenuSystem* menu_setup(void);
+// Global launch menu index (for platform implementations)
+extern int g_launch_menu_index;
 
 #endif // MENU_H

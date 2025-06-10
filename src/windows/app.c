@@ -182,3 +182,7 @@ void app_quit(void) {
 bool app_is_console(void) {
     return g_config.is_console;
 }
+
+bool app_is_running(void) {
+    return utils_atomic_read_bool(&g_config.running);
+}
