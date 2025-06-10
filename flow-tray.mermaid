@@ -55,9 +55,9 @@ flowchart TD
         LL --> MM{Hotkey Released?}
         MM -->|Yes| NN[Stop Recording]
         NN --> OO[Get Audio Samples]
-        OO --> PP[Start Transcription Task]
-        PP --> QQ[Show Transcribing Overlay]
-        QQ --> RR[Wait for Transcription]
+        OO --> PP[Show Transcribing Overlay]
+        PP --> QQ[Transcribe Audio Sync]
+        QQ --> RR[Hide Overlay]
         
         RR --> SS{Text Found?}
         SS -->|Yes| TT[Copy to Clipboard]
@@ -87,12 +87,6 @@ flowchart TD
         A4[Set Language]
         A5[Return Success/Failure]
         
-        B1[Transcription Task]
-        B2[Process Audio Samples]
-        B3[Run Whisper Inference]
-        B4[Clean Text Output]
-        B5[Add Trailing Space]
-        B6[Return Transcribed Text]
         
         C1[Delayed Tasks]
         C2[Retry Model Loading]
@@ -114,13 +108,6 @@ flowchart TD
     A4 --> A5
     A5 -.-> L
     
-    PP -.-> B1
-    B1 --> B2
-    B2 --> B3
-    B3 --> B4
-    B4 --> B5
-    B5 --> B6
-    B6 -.-> SS
     
     P -.-> C1
     R -.-> C1
@@ -141,5 +128,5 @@ flowchart TD
     classDef systemEvent fill:#e8f5e8
     
     class A,B,C,D,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Y,Z,AA,BB,CC,DD,EE,FF,GG,HH,II,JJ,KK,LL,MM,NN,OO,PP,QQ,RR,SS,TT,UU,VV,WW,XX,YY,ZZ,AAA,BBB mainThread
-    class A1,A2,A3,A4,A5,B1,B2,B3,B4,B5,B6,C1,C2,C3 auxThread
+    class A1,A2,A3,A4,A5,C1,C2,C3 auxThread
     class D1,D2,D3,D4 systemEvent

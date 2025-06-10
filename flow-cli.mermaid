@@ -1,129 +1,75 @@
 ---
-title: Yakety CLI App Flow - Main Thread vs Auxiliary Threads  
+title: Yakety CLI App Flow - Much Simpler Than Tray App
 ---
 flowchart TD
     subgraph MT ["Main Thread"]
         A[App Start] --> B[Parse Command Line Args]
         B --> C{Help Requested?}
-        C -->|Yes| D[Show Help]
-        D --> E[Exit]
+        C -->|Yes| D[Show Help & Exit]
         
-        C -->|No| F[Initialize Logging]
-        F --> G[Load Configuration]
-        G --> H{Custom Model Path?}
-        H -->|Yes| I[Override Model in Config]
-        H -->|No| J[Initialize App Framework]
-        I --> J
+        C -->|No| E[Initialize Logging]
+        E --> F[Load Configuration]
+        F --> G{Custom Model Path?}
+        G -->|Yes| H[Override Model in Config]
+        G -->|No| I[Setup Signal Handlers]
+        H --> I
         
+        I --> J[Initialize App Framework]
         J --> K[Initialize Overlay]
         K --> L[Create Audio Recorder]
         L --> M[Start App Run Loop]
-        M --> N[on_app_ready callback]
+        M --> N[Start Async Model Loading]
         
-        N --> O{Show Loading Overlay}
-        O --> P[Start Model Loading Task]
-        P --> Q[Wait for Model Loading]
+        N --> O{Model Load Success?}
+        O -->|No| P{First Attempt?}
+        P -->|Yes| Q[Log Fallback Message]
+        Q --> R[Clear Model Config]
+        R --> S[Retry with Base Model]
+        S --> N
+        P -->|No| T[Log Error & Exit]
+        O -->|Yes| U[Initialize Keylogger]
         
-        Q --> R{Model Load Success?}
-        R -->|No| S{First Attempt?}
-        S -->|Yes| T[Show Fallback Message]
-        T --> U[Clear Model Config]
-        U --> V[Schedule Retry Task]
-        V --> Q
+        U --> V{Keylogger Success?}
+        V -->|No| W[Log Error & Exit]
+        V -->|Yes| X[Load Saved Hotkey]
+        X --> Y[Ready - Main Loop]
         
-        S -->|No| W[Show Error Message]
-        W --> X[Schedule Quit Task]
-        X --> Y[Exit]
+        Y --> Z{Hotkey Pressed?}
+        Z -->|Yes| AA[Start Recording]
+        AA --> BB{Hotkey Released?}
+        BB -->|Yes| CC[Stop Recording]
+        CC --> DD[Get Audio Samples]
+        DD --> EE[Transcribe Audio Sync]
+        EE --> FF{Text Found?}
+        FF -->|Yes| GG[Copy & Paste Text]
+        FF -->|No| HH[Log No Speech]
+        GG --> Y
+        HH --> Y
         
-        R -->|Yes| Z[Hide Loading Overlay]
-        Z --> AA[Initialize Keylogger]
-        
-        AA --> BB{Keylogger Success?}
-        BB -->|No| CC{macOS?}
-        CC -->|Yes| DD[Log Permission Error]
-        DD --> Y
-        CC -->|No| EE[Log Keylogger Error]
-        EE --> Y
-        
-        BB -->|Yes| FF[Load Saved Hotkey]
-        FF --> GG[Set Hotkey Combination]
-        GG --> HH[Ready - Listening for Hotkey]
-        
-        HH --> II{Hotkey Pressed?}
-        II -->|Yes| JJ[Start Recording]
-        JJ --> KK[Show Recording Overlay]
-        KK --> LL{Hotkey Released?}
-        LL -->|Yes| MM[Stop Recording]
-        MM --> NN[Get Audio Samples]
-        NN --> OO[Start Transcription Task]
-        OO --> PP[Show Transcribing Overlay]
-        PP --> QQ[Wait for Transcription]
-        
-        QQ --> RR{Text Found?}
-        RR -->|Yes| SS[Copy to Clipboard]
-        SS --> TT[Paste Text]
-        TT --> UU[Hide Overlay]
-        RR -->|No| VV[Log No Speech]
-        VV --> UU
-        UU --> HH
-        
-        LL -->|No| KK
-        II -->|No| WW{Signal Received?}
-        WW -->|Yes| Y
-        WW -->|No| HH
+        BB -->|No| AA
+        Z -->|No| II{SIGINT/SIGTERM?}
+        II -->|Yes| JJ[Cleanup & Exit]
+        II -->|No| Y
     end
     
     subgraph AT ["Auxiliary Threads"]
-        A1[Model Loading Task]
-        A2[Load Whisper Model]
-        A3[Initialize Transcription]
-        A4[Set Language]
-        A5[Return Success/Failure]
-        
-        B1[Transcription Task]
-        B2[Process Audio Samples]
-        B3[Run Whisper Inference]
-        B4[Clean Text Output]
-        B5[Add Trailing Space]
-        B6[Return Transcribed Text]
-        
-        C1[Delayed Tasks]
-        C2[Retry Model Loading]
-        C3[Quit Application]
+        AT1[Model Loading Task]
+        AT1 --> AT2[Load Whisper Model]
+        AT2 --> AT3[Set Language]
+        AT3 --> AT4[Return Success/Failure]
     end
     
     subgraph SYS ["System Events"]
-        D1[Keyboard Events]
-        D2[Signal Handlers SIGINT/SIGTERM]
-        D3[Command Line Input]
+        SYS1[Keyboard Hotkey Events]
+        SYS2[Signal Events SIGINT/SIGTERM]
     end
     
     %% Connections between threads
-    P -.-> A1
-    A1 --> A2
-    A2 --> A3
-    A3 --> A4
-    A4 --> A5
-    A5 -.-> R
+    N -.-> AT1
+    AT4 -.-> O
     
-    OO -.-> B1
-    B1 --> B2
-    B2 --> B3
-    B3 --> B4
-    B4 --> B5
-    B5 --> B6
-    B6 -.-> RR
-    
-    V -.-> C1
-    X -.-> C1
-    C1 --> C2
-    C1 --> C3
-    C2 -.-> Q
-    C3 -.-> Y
-    
-    D1 -.-> II
-    D2 -.-> WW
-    D3 -.-> B
+    SYS1 -.-> Z
+    SYS2 -.-> II
     
     %% Styling
     classDef mainThread fill:#e1f5fe
@@ -131,7 +77,7 @@ flowchart TD
     classDef systemEvent fill:#e8f5e8
     classDef exitNode fill:#ffebee
     
-    class A,B,C,D,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,T,U,V,W,X,Z,AA,BB,CC,DD,EE,FF,GG,HH,II,JJ,KK,LL,MM,NN,OO,PP,QQ,RR,SS,TT,UU,VV,WW mainThread
-    class A1,A2,A3,A4,A5,B1,B2,B3,B4,B5,B6,C1,C2,C3 auxThread
-    class D1,D2,D3 systemEvent
-    class E,Y exitNode
+    class A,B,C,E,F,G,H,I,J,K,L,M,N,O,P,Q,R,S,U,V,X,Y,Z,AA,BB,CC,DD,EE,FF,GG,HH,II mainThread
+    class AT1,AT2,AT3,AT4 auxThread
+    class SYS1,SYS2 systemEvent
+    class D,T,W,JJ exitNode
