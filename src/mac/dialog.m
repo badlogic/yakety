@@ -81,7 +81,7 @@ bool dialog_wait_for_permission(void) {
     if (self) {
         self.capturedKeys = @"Press keys...";
         self.isCapturing = NO;
-        self.capturedCombination = (KeyCombination){0, 0};
+        self.capturedCombination = (KeyCombination){{{0}}, 0};
         self.hasValidCombination = NO;
         self.lastFlags = 0;
     }
@@ -126,7 +126,7 @@ bool dialog_wait_for_permission(void) {
     self.isCapturing = YES;
     self.capturedKeys = @"Press keys...";
     self.hasValidCombination = NO;
-    self.capturedCombination = (KeyCombination){0, 0};
+    self.capturedCombination = (KeyCombination){{{0}}, 0};
     self.lastFlags = 0;
     
     // Pause the keylogger while capturing
@@ -274,7 +274,10 @@ bool dialog_wait_for_permission(void) {
     }
     
     // Store the raw combination with converted CGEvent flags for keylogger compatibility
-    KeyCombination combo = {keyCode, [self convertToCGEventFlags:flags]};
+    KeyCombination combo = {{{0}}};
+    combo.keys[0].code = keyCode;
+    combo.keys[0].flags = [self convertToCGEventFlags:flags];
+    combo.count = 1;
     self.capturedCombination = combo;
     self.hasValidCombination = YES;
     
@@ -326,7 +329,10 @@ bool dialog_wait_for_permission(void) {
     
     if (released != 0 && ![self.capturedKeys isEqualToString:@"Press keys..."]) {
         // Modifier was released and we have something captured - complete the capture
-        KeyCombination combo = {0, [self convertToCGEventFlags:self.lastFlags]}; // Use the flags before release
+        KeyCombination combo = {{{0}}};
+        combo.keys[0].code = 0;  // No specific key, modifier only
+        combo.keys[0].flags = [self convertToCGEventFlags:self.lastFlags]; // Use the flags before release
+        combo.count = 1;
         self.capturedCombination = combo;
         self.hasValidCombination = YES;
         self.isCapturing = NO;

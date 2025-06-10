@@ -1,6 +1,3 @@
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 #include <stdio.h>
 #include <stdlib.h>
@@ -274,6 +271,7 @@ static void menu_licenses(void) {
 }
 #endif // YAKETY_TRAY_APP
 
+#ifdef YAKETY_TRAY_APP
 // Helper to save key combination to config
 static void save_key_combination(Config* config, const KeyCombination* combo) {
     char buffer[256] = {0};
@@ -287,6 +285,7 @@ static void save_key_combination(Config* config, const KeyCombination* combo) {
     
     // Note: Old format keys will be ignored when new format exists
 }
+#endif
 
 // Helper to load key combination from config
 static bool load_key_combination(Config* config, KeyCombination* combo) {
@@ -308,32 +307,6 @@ static bool load_key_combination(Config* config, KeyCombination* combo) {
         }
         free(copy);
         return combo->count > 0;
-    } else {
-        // Try old format for backwards compatibility
-        uint16_t keycode = config_get_int(config, "hotkey_keycode", 0);
-        uint32_t modifiers = config_get_int(config, "hotkey_modifiers", 0);
-        
-        if (keycode != 0 || modifiers != 0) {
-            // Convert old format to new scan code format
-            // This is a simplified conversion - ideally would map VK codes to scan codes
-            if (keycode == VK_RCONTROL || (keycode == 0 && modifiers == 0x0001)) {
-                // Right Ctrl
-                combo->keys[0].code = 0x1D;
-                combo->keys[0].flags = 1;
-                combo->count = 1;
-            } else if (keycode == VK_LCONTROL) {
-                // Left Ctrl
-                combo->keys[0].code = 0x1D;
-                combo->keys[0].flags = 0;
-                combo->count = 1;
-            } else {
-                // Default to Right Ctrl for unknown
-                combo->keys[0].code = 0x1D;
-                combo->keys[0].flags = 1;
-                combo->count = 1;
-            }
-            return true;
-        }
     }
     return false;
 }
@@ -351,9 +324,15 @@ static void menu_configure_hotkey(void) {
         // Build display message
         char message[256] = "Hotkey configured:\n";
         for (int i = 0; i < combo.count; i++) {
-            char key_info[64];
+            char key_info[128];
+            #ifdef _WIN32
             snprintf(key_info, sizeof(key_info), "Key %d: scancode=0x%02X, extended=%d\n", 
                     i + 1, combo.keys[i].code, combo.keys[i].flags);
+            #else
+            // macOS format - show keycode and modifier flags
+            snprintf(key_info, sizeof(key_info), "Key %d: keycode=%d, modifiers=0x%X\n", 
+                    i + 1, combo.keys[i].code, combo.keys[i].flags);
+            #endif
             strcat(message, key_info);
         }
         dialog_info("Hotkey Configured", message);
