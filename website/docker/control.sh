@@ -22,19 +22,19 @@ pushd "$dir" > /dev/null
 case "$1" in
 start)
     echo "🚀 Starting Yakety website in production mode..."
-    docker-compose -p $project -f docker-compose.base.yml -f docker-compose.prod.yml up -d
+    docker compose -p $project -f docker-compose.base.yml -f docker-compose.prod.yml up -d
     ;;
 startdev)
     echo "🛠️ Starting Yakety website in development mode..."
-    docker-compose -p $project -f docker-compose.base.yml -f docker-compose.dev.yml up --menu=false
+    docker compose -p $project -f docker-compose.base.yml -f docker-compose.dev.yml up --menu=false
     ;;
 stop)
     echo "🛑 Stopping Yakety website..."
-    docker-compose -p $project -f docker-compose.base.yml down
+    docker compose -p $project -f docker-compose.base.yml down
     ;;
 logs)
     echo "📋 Showing logs for Yakety website..."
-    docker-compose -p $project -f docker-compose.base.yml logs -f
+    docker compose -p $project -f docker-compose.base.yml logs -f
     ;;
 shell)
     echo "🐚 Opening shell in server container..."
@@ -46,8 +46,8 @@ shellnginx)
     ;;
 restart)
     echo "🔄 Restarting Yakety website..."
-    docker-compose -p $project -f docker-compose.base.yml down
-    docker-compose -p $project -f docker-compose.base.yml -f docker-compose.prod.yml up -d
+    docker compose -p $project -f docker-compose.base.yml down
+    docker compose -p $project -f docker-compose.base.yml -f docker-compose.prod.yml up -d
     ;;
 *)
     echo "❌ Invalid command: $1"

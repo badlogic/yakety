@@ -7,7 +7,7 @@ npm run build
 echo "📦 Uploading to yakety.ai..."
 rsync -avz --delete build/ slayer.marioslab.io:/home/badlogic/yakety.ai/build/
 rsync -avz --delete html/ slayer.marioslab.io:/home/badlogic/yakety.ai/html/
-rsync -avz docker/ slayer.marioslab.io:/home/badlogic/yakety.ai/docker/
+rsync -avz --exclude='data' docker/ slayer.marioslab.io:/home/badlogic/yakety.ai/docker/
 
 if [ "$1" == "server" ]; then
     echo "🔄 Restarting server..."
