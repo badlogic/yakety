@@ -1,20 +1,20 @@
 #include "../logging.h"
 #include "../utils.h"
-#include <windows.h>
-#include <stdio.h>
-#include <stdarg.h>
-#include <time.h>
 #include <direct.h>
+#include <stdarg.h>
 #include <stdbool.h>
+#include <stdio.h>
+#include <time.h>
+#include <windows.h>
 
 static HANDLE g_log_file = INVALID_HANDLE_VALUE;
 static CRITICAL_SECTION g_log_mutex;
 static bool g_mutex_initialized = false;
 static char g_log_path[MAX_PATH] = {0};
 
-static const char* get_log_path(void) {
+static const char *get_log_path(void) {
     if (g_log_path[0] == '\0') {
-        char* userprofile = getenv("USERPROFILE");
+        char *userprofile = getenv("USERPROFILE");
         if (userprofile) {
             snprintf(g_log_path, MAX_PATH, "%s\\.yakety\\log.txt", userprofile);
         } else {
@@ -30,40 +30,38 @@ void log_init(void) {
         SetConsoleOutputCP(CP_UTF8);
         SetConsoleCP(CP_UTF8);
     }
-    
+
     // Initialize critical section
     if (!g_mutex_initialized) {
         InitializeCriticalSection(&g_log_mutex);
         g_mutex_initialized = true;
     }
-    
+
     // Don't re-initialize if already done
     if (g_log_file != INVALID_HANDLE_VALUE) {
         return;
     }
-    
+
     // Ensure .yakety directory exists
     char dir_path[MAX_PATH];
-    char* userprofile = getenv("USERPROFILE");
+    char *userprofile = getenv("USERPROFILE");
     if (userprofile) {
         snprintf(dir_path, MAX_PATH, "%s\\.yakety", userprofile);
     } else {
         strcpy(dir_path, ".yakety");
     }
-    
+
     // Create directory if it doesn't exist
     utils_ensure_dir_exists(dir_path);
-    
+
     // Open log file with shared read access (truncate on startup)
-    const char* log_path = get_log_path();
-    g_log_file = CreateFileA(log_path,
-                            GENERIC_WRITE,
-                            FILE_SHARE_READ,  // Allow other processes to read
-                            NULL,
-                            CREATE_ALWAYS,    // Always create new file
-                            FILE_ATTRIBUTE_NORMAL,
-                            NULL);
-    
+    const char *log_path = get_log_path();
+    g_log_file = CreateFileA(log_path, GENERIC_WRITE,
+                             FILE_SHARE_READ, // Allow other processes to read
+                             NULL,
+                             CREATE_ALWAYS, // Always create new file
+                             FILE_ATTRIBUTE_NORMAL, NULL);
+
     if (g_log_file != INVALID_HANDLE_VALUE) {
         // Write session header
         time_t now = time(NULL);
@@ -71,7 +69,7 @@ void log_init(void) {
         struct tm tm_info;
         localtime_s(&tm_info, &now);
         strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_info);
-        
+
         char header[256];
         int len = snprintf(header, sizeof(header), "=== Yakety Session Started: %s ===\n", time_str);
         DWORD written;
@@ -82,7 +80,7 @@ void log_init(void) {
 void log_cleanup(void) {
     if (g_mutex_initialized) {
         EnterCriticalSection(&g_log_mutex);
-        
+
         if (g_log_file != INVALID_HANDLE_VALUE) {
             // Write session footer
             time_t now = time(NULL);
@@ -90,43 +88,44 @@ void log_cleanup(void) {
             struct tm tm_info;
             localtime_s(&tm_info, &now);
             strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_info);
-            
+
             char footer[256];
             int len = snprintf(footer, sizeof(footer), "=== Yakety Session Ended: %s ===\n\n", time_str);
             DWORD written;
             WriteFile(g_log_file, footer, len, &written, NULL);
-            
+
             CloseHandle(g_log_file);
             g_log_file = INVALID_HANDLE_VALUE;
         }
-        
+
         LeaveCriticalSection(&g_log_mutex);
         DeleteCriticalSection(&g_log_mutex);
         g_mutex_initialized = false;
     }
 }
 
-static void log_to_file(const char* level, const char* format, va_list args) {
-    if (g_log_file == INVALID_HANDLE_VALUE || !g_mutex_initialized) return;
-    
+static void log_to_file(const char *level, const char *format, va_list args) {
+    if (g_log_file == INVALID_HANDLE_VALUE || !g_mutex_initialized)
+        return;
+
     EnterCriticalSection(&g_log_mutex);
-    
+
     // Format the complete log message
     char buffer[2048];
     char message[1024];
-    
+
     // Format the message from va_list
     vsnprintf(message, sizeof(message), format, args);
-    
+
     // Build complete log line with timestamp
     time_t now = time(NULL);
     char time_str[64];
     struct tm tm_info;
     localtime_s(&tm_info, &now);
     strftime(time_str, sizeof(time_str), "%Y-%m-%d %H:%M:%S", &tm_info);
-    
+
     int len = snprintf(buffer, sizeof(buffer), "[%s] %s: %s", time_str, level, message);
-    
+
     // Add newline if needed
     if (message[strlen(message) - 1] != '\n') {
         if (len < sizeof(buffer) - 1) {
@@ -135,38 +134,38 @@ static void log_to_file(const char* level, const char* format, va_list args) {
             len++;
         }
     }
-    
+
     // Write to file
     DWORD written;
     WriteFile(g_log_file, buffer, len, &written, NULL);
-    
+
     // Flush to ensure data is written immediately
     FlushFileBuffers(g_log_file);
-    
+
     LeaveCriticalSection(&g_log_mutex);
 }
 
 // Helper function to format and output log messages
-static void log_output(const char* level, const char* format, va_list args) {
+static void log_output(const char *level, const char *format, va_list args) {
     // Log to file first
     va_list args_copy;
     va_copy(args_copy, args);
     log_to_file(level, format, args_copy);
     va_end(args_copy);
-    
+
     // Then to console/debugger
     char buffer[1024];
     char message[1024];
-    
+
     // Format the message
     vsnprintf(message, sizeof(message), format, args);
-    
+
     // Create full log string with level prefix
     snprintf(buffer, sizeof(buffer), "[%s] %s", level, message);
     if (message[strlen(message) - 1] != '\n') {
         strcat(buffer, "\n");
     }
-    
+
     // Check if we're running as a console app
     if (GetConsoleWindow() != NULL) {
         // Console app - use printf
@@ -178,27 +177,27 @@ static void log_output(const char* level, const char* format, va_list args) {
     }
 }
 
-void log_info(const char* format, ...) {
+void log_info(const char *format, ...) {
     va_list args;
     va_start(args, format);
     log_output("INFO", format, args);
     va_end(args);
 }
 
-void log_error(const char* format, ...) {
+void log_error(const char *format, ...) {
     va_list args;
     va_start(args, format);
     log_output("ERROR", format, args);
     va_end(args);
 }
 
-void log_debug(const char* format, ...) {
+void log_debug(const char *format, ...) {
 #ifdef DEBUG
     va_list args;
     va_start(args, format);
     log_output("DEBUG", format, args);
     va_end(args);
 #else
-    (void)format;
+    (void) format;
 #endif
 }

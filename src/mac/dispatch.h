@@ -5,4 +5,4 @@
 // Automatically chooses the right scheduling method based on app type
 void app_dispatch_main(void (^block)(void));
 
-#endif // MAC_DISPATCH_H
+#endif// MAC_DISPATCH_H

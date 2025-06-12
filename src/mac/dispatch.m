@@ -1,6 +1,6 @@
-#import <Foundation/Foundation.h>
 #include "dispatch.h"
 #include "../app.h"
+#import <Foundation/Foundation.h>
 
 void app_dispatch_main(void (^block)(void)) {
     if (app_is_console()) {

@@ -18,7 +18,7 @@ int audio_recorder_start(void);
 
 // Start recording to file
 // Returns 0 on success, -1 on failure
-int audio_recorder_start_file(const char* filename);
+int audio_recorder_start_file(const char *filename);
 
 // Stop recording
 // Returns 0 on success, -1 on failure
@@ -27,13 +27,12 @@ int audio_recorder_stop(void);
 // Get the recorded audio samples
 // Returns pointer to audio data, count is written to out_sample_count
 // Caller must free the returned buffer
-float* audio_recorder_get_samples(int* out_sample_count);
+float *audio_recorder_get_samples(int *out_sample_count);
 
 // Get recording duration in seconds
 double audio_recorder_get_duration(void);
 
 // Check if currently recording
 bool audio_recorder_is_recording(void);
-
 
 #endif // AUDIO_H

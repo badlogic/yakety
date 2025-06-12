@@ -1,20 +1,22 @@
 
+#include <signal.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <stdlib.h>
-#include <signal.h>
 #include <string.h>
-#include <stdint.h>
+
 
 #include "app.h"
-#include "logging.h"
 #include "audio.h"
-#include "transcription.h"
-#include "keylogger.h"
 #include "clipboard.h"
-#include "overlay.h"
-#include "utils.h"
-#include "preferences.h"
+#include "keylogger.h"
+#include "logging.h"
 #include "menu.h"
+#include "overlay.h"
+#include "preferences.h"
+#include "transcription.h"
+#include "utils.h"
+
 
 #include "dialog.h"
 
@@ -28,25 +30,30 @@ typedef struct {
     double recording_start_time;
 } AppState;
 
-static AppState* g_state = NULL;
+static AppState *g_state = NULL;
 
 // Forward declarations
-static void* load_model_async(void* arg);
-static void on_key_press(void* userdata);
-static void on_key_release(void* userdata);
+static void *load_model_async(void *arg);
+static void on_key_press(void *userdata);
+static void on_key_release(void *userdata);
 
 static void signal_handler(int sig) {
-    (void)sig;
+    (void) sig;
     app_quit();
 }
 
 // Helper function to extract filename from path
-static const char* get_filename_from_path(const char* path) {
-    if (!path) return "unknown";
+static const char *get_filename_from_path(const char *path) {
+    if (!path)
+        return "unknown";
 
-    const char* filename = strrchr(path, '/');
-    if (!filename) filename = strrchr(path, '\\');
-    if (filename) filename++; else filename = path;
+    const char *filename = strrchr(path, '/');
+    if (!filename)
+        filename = strrchr(path, '\\');
+    if (filename)
+        filename++;
+    else
+        filename = path;
     return filename;
 }
 
@@ -57,20 +64,18 @@ static bool load_model_with_fallback(void) {
     overlay_show("Loading model");
 
     // Try to load the model (this blocks but keeps UI responsive)
-    void* result = app_execute_async_blocking(load_model_async, NULL);
+    void *result = app_execute_async_blocking(load_model_async, NULL);
 
     if (!result) {
         // First failure - try fallback to base model
-        const char* failed_model = preferences_get_string("model");
+        const char *failed_model = preferences_get_string("model");
         char fallback_msg[256];
 
         if (failed_model && strlen(failed_model) > 0) {
-            const char* filename = get_filename_from_path(failed_model);
-            snprintf(fallback_msg, sizeof(fallback_msg),
-                    "Failed to load %s, falling back to base model", filename);
+            const char *filename = get_filename_from_path(failed_model);
+            snprintf(fallback_msg, sizeof(fallback_msg), "Failed to load %s, falling back to base model", filename);
         } else {
-            snprintf(fallback_msg, sizeof(fallback_msg),
-                    "Failed to load model, falling back to base model");
+            snprintf(fallback_msg, sizeof(fallback_msg), "Failed to load model, falling back to base model");
         }
 
         overlay_show_error(fallback_msg);
@@ -87,11 +92,11 @@ static bool load_model_with_fallback(void) {
 
         if (!result) {
             // Final failure - show error and quit
-            const char* model_path = utils_get_model_path();
+            const char *model_path = utils_get_model_path();
             char error_msg[256];
 
             if (model_path) {
-                const char* filename = get_filename_from_path(model_path);
+                const char *filename = get_filename_from_path(model_path);
                 snprintf(error_msg, sizeof(error_msg), "Failed to load %s", filename);
             } else {
                 snprintf(error_msg, sizeof(error_msg), "Model not found");
@@ -112,24 +117,24 @@ static bool load_model_with_fallback(void) {
 }
 
 // Async model loading work function
-static void* load_model_async(void* arg) {
-    (void)arg;  // No longer need config parameter
+static void *load_model_async(void *arg) {
+    (void) arg; // No longer need config parameter
 
     log_info("Loading Whisper model in background thread...");
 
-    const char* model_path = utils_get_model_path();
+    const char *model_path = utils_get_model_path();
     if (!model_path) {
         log_error("Could not find Whisper model file");
-        return (void*)0; // Return 0 for failure
+        return (void *) 0; // Return 0 for failure
     }
 
     if (transcription_init(model_path) != 0) {
         log_error("Failed to initialize transcription");
-        return (void*)0; // Return 0 for failure
+        return (void *) 0; // Return 0 for failure
     }
 
     // Set language from preferences
-    const char* language = preferences_get_string("language");
+    const char *language = preferences_get_string("language");
     if (language) {
         transcription_set_language(language);
     } else {
@@ -137,7 +142,7 @@ static void* load_model_async(void* arg) {
     }
 
     log_info("Model loaded successfully");
-    return (void*)1; // Return 1 for success
+    return (void *) 1; // Return 1 for success
 }
 
 // Setup menu system for tray apps
@@ -165,7 +170,7 @@ static bool setup_menu_if_needed(void) {
 
 // Handle keylogger permission issues on macOS
 static bool handle_keylogger_permissions(void) {
-    #ifdef __APPLE__
+#ifdef __APPLE__
     if (!app_is_console()) {
         // Need accessibility permission on macOS tray apps
         int response = dialog_accessibility_permission();
@@ -192,16 +197,17 @@ static bool handle_keylogger_permissions(void) {
     } else {
         // CLI app - just log and exit
         log_error("Failed to initialize keyboard monitoring");
-        log_error("Please grant accessibility permission in System Preferences → Security & Privacy → Privacy → Accessibility");
+        log_error("Please grant accessibility permission in System Preferences → Security & Privacy → Privacy → "
+                  "Accessibility");
         app_quit();
         return false;
     }
-    #else
+#else
     // Non-macOS platforms
     log_error("Failed to initialize keyboard monitoring");
     app_quit();
     return false;
-    #endif
+#endif
 }
 
 // Setup keylogger with permission handling
@@ -218,11 +224,11 @@ static bool setup_keylogger(void) {
                 // Use default
                 KeyCombination default_combo = keylogger_get_fn_combination();
                 keylogger_set_combination(&default_combo);
-                #ifdef _WIN32
+#ifdef _WIN32
                 log_info("Using default Right Ctrl hotkey");
-                #else
+#else
                 log_info("Using default FN key hotkey");
-                #endif
+#endif
             }
             return true;
         } else {
@@ -245,8 +251,7 @@ static void handle_first_run(void) {
         preferences_set_bool("first_run", false);
         preferences_save();
 
-        if (dialog_confirm("Welcome to Yakety",
-                          "Would you like Yakety to start automatically when you log in?")) {
+        if (dialog_confirm("Welcome to Yakety", "Would you like Yakety to start automatically when you log in?")) {
             if (utils_set_launch_at_login(true)) {
                 dialog_info("Launch Settings", "Yakety will now start automatically when you log in.");
             }
@@ -265,16 +270,16 @@ static void process_recorded_audio(double duration) {
     // Get recorded audio
     double get_samples_start = utils_now();
     int sample_count = 0;
-    float* samples = audio_recorder_get_samples(&sample_count);
+    float *samples = audio_recorder_get_samples(&sample_count);
     double get_samples_duration = utils_now() - get_samples_start;
     log_info("⏱️  Getting audio samples took: %.0f ms (%d samples)", get_samples_duration * 1000.0, sample_count);
 
     if (samples && sample_count > 0) {
-        log_info("🧠 Starting transcription of %.2f seconds of audio...", (float)sample_count / 16000.0f);
+        log_info("🧠 Starting transcription of %.2f seconds of audio...", (float) sample_count / 16000.0f);
         overlay_show("Transcribing");
 
         double transcribe_start = utils_now();
-        char* text = transcription_process(samples, sample_count, 16000);
+        char *text = transcription_process(samples, sample_count, 16000);
         double transcribe_duration = utils_now() - transcribe_start;
         overlay_hide();
         log_info("⏱️  Full transcription pipeline took: %.0f ms", transcribe_duration * 1000.0);
@@ -295,15 +300,16 @@ static void process_recorded_audio(double duration) {
             free(text);
         } else {
             log_info("⚠️  No speech detected");
-            if (text) free(text);
+            if (text)
+                free(text);
         }
 
         free(samples);
     }
 }
 
-static void on_key_press(void* userdata) {
-    AppState* state = (AppState*)userdata;
+static void on_key_press(void *userdata) {
+    AppState *state = (AppState *) userdata;
 
     if (!state->recording) {
         state->recording = true;
@@ -318,8 +324,8 @@ static void on_key_press(void* userdata) {
     }
 }
 
-static void on_key_release(void* userdata) {
-    AppState* state = (AppState*)userdata;
+static void on_key_release(void *userdata) {
+    AppState *state = (AppState *) userdata;
 
     if (state->recording) {
         state->recording = false;
@@ -337,9 +343,6 @@ static void on_key_release(void* userdata) {
         process_recorded_audio(duration);
     }
 }
-
-
-
 
 // Called when app is ready - for both CLI and tray apps
 static void on_app_ready(void) {
@@ -360,12 +363,12 @@ static void on_app_ready(void) {
         return; // Keylogger setup failed and quit was called
     }
 
-    // Step 4: Log startup completion
-    #ifdef _WIN32
+// Step 4: Log startup completion
+#ifdef _WIN32
     log_info("Yakety is running. Press and hold Right Ctrl to record.");
-    #else
+#else
     log_info("Yakety is running. Press and hold FN to record.");
-    #endif
+#endif
 
     // Step 5: Handle first run dialog
     handle_first_run();
@@ -373,8 +376,7 @@ static void on_app_ready(void) {
     log_info("App initialization completed successfully");
 }
 
-
-static const char* parse_cli_args(int argc, char** argv) {
+static const char *parse_cli_args(int argc, char **argv) {
     if (argc <= 1) {
         return NULL;
     }
@@ -418,14 +420,14 @@ static void cleanup_all(void) {
     log_cleanup();
 }
 
-int app_main(int argc, char** argv, bool is_console) {
-    const char* custom_model_path = NULL;
+int app_main(int argc, char **argv, bool is_console) {
+    const char *custom_model_path = NULL;
     // Parse command line arguments for CLI version
     if (is_console) {
         custom_model_path = parse_cli_args(argc, argv);
     } else {
-        (void)argc;
-        (void)argv;
+        (void) argc;
+        (void) argv;
     }
 
     // Initialize logging system
@@ -480,4 +482,3 @@ int app_main(int argc, char** argv, bool is_console) {
 }
 
 APP_ENTRY_POINT
-
