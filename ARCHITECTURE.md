@@ -2,38 +2,52 @@
 
 ## Overview
 
-Yakety uses a clean modular architecture that separates platform-specific code from business logic. The architecture consists of:
+Yakety uses a sophisticated modular architecture that separates platform-specific code from business logic while introducing innovative patterns for cross-platform development. The architecture consists of:
 
 1. **Module Headers** (`src/*.h`) - Define platform-agnostic interfaces
 2. **Platform Implementations** (`src/mac/*.m`, `src/windows/*.c`) - Platform-specific implementations
-3. **Business Logic** (`src/audio.c`, `src/transcription.cpp`) - Platform-agnostic application code
+3. **Business Logic** (`src/audio.c`, `src/transcription.cpp`, `src/menu.c`) - Platform-agnostic application code
 4. **Unified Main** (`src/main.c`) - Single entry point for both CLI and tray apps
+5. **Cross-Platform Utilities** - Advanced async patterns and thread management
+6. **Configuration System** (`src/preferences.c`) - INI-based settings management
 
 ## Modules
 
 ### Core Platform Modules
 
-- **`logging`** - Console/GUI logging abstraction
-- **`clipboard`** - Copy and paste operations
-- **`overlay`** - On-screen text overlay
-- **`dialog`** - Message boxes and alerts
-- **`menu`** - System tray/menubar management (singleton pattern)
-- **`keylogger`** - Keyboard event monitoring (singleton pattern)
-- **`app`** - Application lifecycle management with atomic state
-- **`utils`** - Platform utilities (time, sleep, paths, atomic operations)
+- **`logging`** - Console/GUI logging abstraction with file rotation
+- **`clipboard`** - Copy and paste operations with automatic text insertion
+- **`overlay`** - On-screen status overlays with transparency
+- **`dialog`** - Message boxes and alerts with permission handling
+- **`menu`** - System tray/menubar management (singleton pattern) with dark mode support
+- **`keylogger`** - Keyboard event monitoring (singleton pattern) with FN key detection
+- **`app`** - Application lifecycle management with atomic state and unified run loops
+- **`utils`** - Platform utilities (time, sleep, paths, atomic operations, responsive operations)
+- **`preferences`** - INI-based configuration management with hotkey persistence
 
 ### Business Logic Modules
 
-- **`audio`** - Audio recording using miniaudio
-- **`transcription`** - Speech-to-text using Whisper
+- **`audio`** - Audio recording using miniaudio (16kHz mono, Whisper-optimized)
+- **`transcription`** - Speech-to-text using OpenAI Whisper with GPU acceleration (Metal/Vulkan)
+- **`menu`** - Cross-platform menu business logic with hotkey configuration
 
 ## Build System
 
-The CMake build system creates:
+The advanced CMake build system creates:
 
 1. **`platform`** - Static library containing all platform implementations
-2. **`yakety-cli`** - CLI executable (links to platform library)
-3. **`yakety-app`** - GUI/tray executable (links to platform library, defines YAKETY_TRAY_APP)
+2. **`yakety-cli`** - CLI executable for terminal use
+3. **`yakety-app`** - GUI/tray executable (.app bundle on macOS)
+4. **`recorder`** - Standalone audio recording utility
+5. **`transcribe`** - File-based transcription utility
+
+**Build Features:**
+- **Preset-based builds** - `cmake --preset release/debug/vs-debug`
+- **Universal binaries** - macOS builds for Intel and Apple Silicon
+- **Automated dependencies** - Whisper.cpp auto-download and compilation
+- **Icon generation** - Automated asset creation from master icon
+- **GPU acceleration** - Metal (macOS) and Vulkan (Windows) with fallbacks
+- **Distribution packaging** - Automated DMG/ZIP creation with code signing
 
 ## Key Design Principles
 
@@ -44,6 +58,9 @@ The CMake build system creates:
 5. **Thread Safety** - Atomic operations for cross-thread state management
 6. **Robust Error Handling** - Proper error propagation and cleanup on failure
 7. **Platform-Agnostic Entry Points** - `APP_ENTRY_POINT` handles all platform variations automatically
+8. **Blocking Async Pattern** - Revolutionary approach combining sync code simplicity with UI responsiveness
+9. **Graceful Degradation** - Automatic fallbacks for model loading, GPU acceleration, and permissions
+10. **Configuration Persistence** - INI-based settings with platform-appropriate storage locations
 
 ## Adding New Platforms
 
@@ -257,6 +274,47 @@ if (results) {
 
 This pattern is particularly useful for initialization sequences, file operations, or any async work where you want the simplicity of blocking code without freezing the UI.
 
+## Remote Development Infrastructure
+
+Yakety includes a sophisticated remote development setup for cross-platform development, particularly useful for developing Windows features from macOS:
+
+### WSL-Based Development Bridge
+
+**Components:**
+- **`wsl/setup-wsl-ssh.sh`** - One-time SSH server configuration in WSL
+- **`wsl/start-wsl-ssh.bat`** - SSH port forwarding startup script
+- **`wsl/REMOTE_DEVELOPMENT.md`** - Comprehensive development guide
+
+### Development Workflow
+
+```bash
+# On Windows (one-time setup)
+wsl/setup-wsl-ssh.sh
+
+# On Windows (after each reboot) - run as administrator
+wsl/start-wsl-ssh.bat
+
+# From macOS (automated via Claude Code)
+rsync -av src/ badlogic@192.168.1.21:/mnt/c/workspaces/yakety/src/
+ssh badlogic@192.168.1.21 "cd /mnt/c/workspaces/yakety && cmd.exe /c 'build.bat'"
+ssh badlogic@192.168.1.21 "build/bin/yakety-cli.exe"
+```
+
+### Benefits
+
+1. **Native macOS Development** - Use familiar tools and IDE
+2. **Windows Build Testing** - Immediate feedback on Windows-specific issues
+3. **Claude Code Integration** - Seamless automated workflow
+4. **SSH-Based Sync** - Fast, secure file synchronization
+5. **Cross-Platform Debugging** - Test both platforms without context switching
+
+### Network Architecture
+
+- **WSL Ubuntu** - Linux development environment on Windows
+- **SSH Bridge** - Secure connection between macOS and Windows WSL
+- **Port Forwarding** - Windows batch script handles SSH port mapping
+- **Rsync Protocol** - Efficient file synchronization
+
 ## Cross-Platform Main Thread Dispatching
 
 ### Problem
@@ -309,6 +367,95 @@ void app_dispatch_main(void (^block)(void)) {
 - `menu.m` - Menu item updates
 - Any future macOS modules requiring main thread execution
 
+## Enhanced Transcription System
+
+Yakety includes a sophisticated transcription system built on OpenAI's Whisper model with several advanced features:
+
+### GPU Acceleration Support
+
+**Automatic Backend Selection:**
+- **macOS**: Metal acceleration with CoreML fallback
+- **Windows**: Vulkan acceleration with CPU fallback
+- **Fallback Logic**: Automatically degrades to CPU if GPU initialization fails
+
+### Advanced Model Management
+
+**Features:**
+- **Flash Attention**: Enabled for improved performance and memory efficiency
+- **Custom Model Support**: User-configurable model paths via preferences
+- **Automatic Fallback**: Failed custom models automatically fall back to bundled base model
+- **Model Validation**: Comprehensive error handling during model loading
+- **Language Configuration**: Configurable transcription language settings
+
+### Text Processing Pipeline
+
+**Smart Filtering:**
+```c
+// Removes non-speech artifacts
+- Bracket notation: [MUSIC], [NOISE], [LAUGHTER]
+- Star notation: *coughs*, *clears throat*
+- Whisper timestamps and metadata
+```
+
+**Text Enhancement:**
+- Automatic whitespace cleanup and normalization
+- Trailing space addition for seamless pasting
+- UTF-8 encoding consistency across platforms
+
+### Error Recovery
+
+**Robust Fallback System:**
+1. **Primary Model Load** - Attempt user-configured model
+2. **Fallback Model Load** - Use bundled base model on failure
+3. **GPU Fallback** - Degrade to CPU processing if GPU fails
+4. **Graceful Error Display** - User-friendly error messages via overlay system
+
+## Configuration Management System
+
+Yakety implements a comprehensive configuration system using platform-appropriate storage:
+
+### Storage Locations
+
+**macOS:**
+- **Config**: `~/.yakety/config.ini`
+- **Logs**: `~/Library/Logs/Yakety/`
+- **Models**: `~/.yakety/models/`
+
+**Windows:**
+- **Config**: `%APPDATA%\Yakety\config.ini`
+- **Logs**: `%LOCALAPPDATA%\Yakety\Logs\`
+- **Models**: `%APPDATA%\Yakety\models\`
+
+### Configuration Features
+
+**Hotkey Persistence:**
+```ini
+[yakety]
+# Platform-specific hotkey storage
+# macOS: Fn key = keycode 63, modifiers 8388608
+# Windows: Right Ctrl = scancode 29, extended flag 1
+hotkey_keycode = 63
+hotkey_modifiers = 8388608
+```
+
+**Advanced Settings:**
+- **Custom Model Paths**: Full path specification with validation
+- **Launch at Login**: OS integration for startup behavior
+- **Transcription Language**: Whisper language model configuration
+- **Debug Logging**: Configurable log levels and rotation
+
+### Platform Integration
+
+**macOS Integration:**
+- **Launch Agent**: Automatic plist generation for login items
+- **Sandbox Compatibility**: Proper path handling for App Store distribution
+- **Accessibility Permissions**: Automated permission request flow
+
+**Windows Integration:**
+- **Registry Integration**: Windows startup folder management
+- **UAC Compatibility**: Elevation-aware permission handling
+- **File Association**: Optional file type associations for transcription
+
 ## Module Dependencies
 
 ```
@@ -328,22 +475,24 @@ main.c
 ## Platform Library Contents
 
 ### macOS (`libplatform.a`)
-- `logging.m` - NSLog for GUI, printf for console
-- `clipboard.m` - NSPasteboard + CGEvent simulation
-- `overlay.m` - NSWindow overlay
-- `dialog.m` - NSAlert with accessibility permission handling
-- `menu.m` - NSStatusItem singleton with proper retention and error handling
-- `keylogger.c` - CGEventTap with FN key detection via flags
+- `logging.m` - NSLog for GUI, printf for console with file rotation
+- `clipboard.m` - NSPasteboard + CGEvent simulation with automatic pasting
+- `overlay.m` - NSWindow overlay with transparency and multi-display support
+- `dialog.m` - NSAlert with comprehensive accessibility permission handling
+- `menu.m` - NSStatusItem singleton with proper retention, dark mode, and error handling
+- `keylogger.c` - CGEventTap with sophisticated FN key detection via flags
 - `app.m` - NSApplication with atomic state management and unified run loop
-- `utils.m` - Foundation utilities including accessibility settings and atomic operations
-- `dispatch.m` - Centralized main thread dispatching that chooses optimal method
+- `utils.m` - Foundation utilities including accessibility settings, atomic operations, and responsive timing
+- `dispatch.m` - Centralized main thread dispatching that automatically chooses optimal method
+- `preferences.m` - NSUserDefaults and file-based INI configuration management
 
 ### Windows (`platform.lib`)
-- `logging.c` - OutputDebugString for GUI, printf for console
-- `clipboard.c` - Windows clipboard API + SendInput
-- `overlay.c` - Layered window
-- `dialog.c` - MessageBox with key combination capture support
-- `menu.c` - System tray singleton with dark mode support and proper error handling
-- `keylogger.c` - Low-level keyboard hook with struct-based state management
-- `app.c` - Windows message pump with atomic state management
-- `utils.c` - Windows timer, file APIs, and atomic operations
+- `logging.c` - OutputDebugString for GUI, printf for console with file rotation
+- `clipboard.c` - Windows clipboard API + SendInput with automatic pasting
+- `overlay.c` - Layered window with transparency and multi-monitor support
+- `dialog.c` - MessageBox with comprehensive key combination capture support
+- `menu.c` - System tray singleton with dark mode support, proper error handling, and icon management
+- `keylogger.c` - Low-level keyboard hook with sophisticated struct-based state management
+- `app.c` - Windows message pump with atomic state management and responsive event processing
+- `utils.c` - Windows timer, file APIs, atomic operations, and responsive timing functions
+- `preferences.c` - Registry and INI-based configuration management

@@ -1,259 +1,64 @@
 # Yakety
 
-A voice-to-text input tool that works in any application. Hold a hotkey to record your voice, release to transcribe and paste the text.
+Voice-to-text input for any application. Hold a hotkey to record, release to transcribe and paste.
 
-## Features
-
-- 🎤 **Universal Voice Input** - Works in any application
-- 🚀 **Fast Local Transcription** - Uses OpenAI's Whisper model running locally
-- 🔒 **Privacy First** - All processing happens on your device
-- ⚡ **GPU Accelerated** - Metal on macOS, Vulkan on Windows (optional)
-- 🖥️ **Cross-Platform** - macOS and Windows support
-- ⚙️ **Configurable** - Custom model paths, customizable hotkeys, launch at login
-- 📝 **File Logging** - Automatic log rotation with debugging info
-- 🔄 **Smart Model Loading** - Automatic fallback to base model if custom model fails
-- 🏗️ **Modern Architecture** - Clean singleton patterns with robust error handling
-- 🔧 **Thread-Safe** - Proper atomic operations for cross-thread communication
-
-## Prerequisites
-
-### macOS
-- macOS 10.15 or later
-- CMake 3.20+
-- Ninja build system (`brew install ninja`)
-- Xcode Command Line Tools
-- ImageMagick (optional, for icon generation): `brew install imagemagick`
-
-### Windows
-- Windows 10 or later
-- CMake 3.20+
-- Ninja build system (`choco install ninja` or `winget install Ninja-build.Ninja`)
-- Visual Studio 2019 or later (MSVC compiler)
-- Vulkan SDK (optional, for GPU acceleration)
-- ImageMagick (optional, for icon generation)
-
-
-## Building
-
-The build process is fully automated through CMake. It will:
-1. Generate icons from the master icon (if ImageMagick is available)
-2. Clone and build whisper.cpp with appropriate acceleration
-3. Download the Whisper model (~150MB)
-4. Build Yakety
-
-### Quick Build
+## Quick Start
 
 ```bash
-# Clone the repository
 git clone https://github.com/badlogic/yakety.git
 cd yakety
-
-# Build with release settings (Ninja on all platforms)
 cmake --preset release
 cmake --build --preset release
-
-# Or build with debug symbols (Ninja on all platforms)
-cmake --preset debug
-cmake --build --preset debug
-
-# Windows only: Build with Visual Studio for debugging
-cmake --preset vs-debug
-cmake --build --preset vs-debug
 ```
 
-## Build Outputs
-
-After building, you'll find the following in the `build/bin` directory:
-
-- **yakety-cli** - CLI version that runs in terminal
-- **yakety-app** (.app on macOS, .exe on Windows) - GUI version with system tray icon
-- **recorder** - Standalone audio recording utility
-- **test_transcription** - Test utility for verifying transcription
-
-### macOS
-```
-build/bin/
-├── yakety-cli                # CLI executable
-├── Yakety.app/              # macOS app bundle with tray icon
-├── recorder                 # Audio recorder
-└── test_transcription       # Transcription test tool
-```
-
-### Creating Distribution Packages
-
-After building, you can create distributable packages:
-
-```bash
-# Build the release version first
-cmake --preset release
-cmake --build --preset release
-
-# Create distribution packages for current platform
-cmake --build build --target package
-
-# Create specific packages
-cmake --build build --target package-cli-macos    # CLI tools only (macOS)
-cmake --build build --target package-app-macos    # App bundle only (macOS)
-cmake --build build --target package-cli-windows  # CLI tools only (Windows)
-cmake --build build --target package-app-windows  # App bundle only (Windows)
-
-# Upload packages to server (requires SSH access)
-cmake --build build --target upload
-```
-
-**Distribution packages created:**
-
-**macOS:**
-- `yakety-cli-macos.zip` - CLI tools (yakety-cli, models, menubar.png, recorder, transcribe)
-- `Yakety-macos.dmg` - App bundle as disk image (Yakety.app with all resources)
-- `Yakety-macos.zip` - Compressed DMG for faster upload/download
-
-**Windows:**
-- `yakety-cli-windows.zip` - CLI tools (yakety-cli.exe, models, menubar.png, recorder.exe, transcribe.exe)
-- `Yakety-windows.zip` - App bundle (Yakety.exe, models, menubar.png, recorder.exe, transcribe.exe)
-
-### Windows
-```
-build\bin\
-├── yakety-cli.exe           # CLI executable
-├── Yakety.exe              # Windows tray application
-├── recorder.exe            # Audio recorder
-└── test_transcription.exe  # Transcription test tool
-```
+**macOS:** Open `build/bin/Yakety.app`
+**Windows:** Run `build\bin\Yakety.exe`
 
 ## Usage
 
-### GUI Version (Recommended)
-```bash
-# macOS
-open build/bin/Yakety.app
+The app runs in your system tray. Default hotkey:
+- **macOS:** Fn key
+- **Windows:** Right Ctrl
 
-# Windows
-build\bin\Yakety.exe
-```
+Hold to record, release to transcribe and paste.
 
-The app will appear in your system tray/menubar. By default, hold the **Fn** key (macOS) or **Right Ctrl** (Windows) to record, release to transcribe and paste.
+## Requirements
 
-Right-click the tray icon for options:
-- **Configure Hotkey** - Change the key combination for recording
-- **Launch at Login** - Start Yakety automatically when you log in
-- **About** - Version and license information
-- **Quit** - Exit the application
-
-### CLI Version
-```bash
-# Run in terminal
-./build/bin/yakety-cli
-```
-
-### Testing
-```bash
-# Record audio to file
-./build/bin/recorder test.wav
-
-# Test transcription
-./build/bin/test_transcription test.wav
-```
+- **macOS:** 10.15+, Xcode Command Line Tools
+- **Windows:** Windows 10+, Visual Studio 2019+
+- **Both:** CMake 3.20+, Ninja (`brew install ninja` / `choco install ninja`)
 
 ## Configuration
 
-Yakety stores its configuration in an INI file:
-- **macOS**: `~/.yakety/config.ini`
-- **Windows**: `%APPDATA%\Yakety\config.ini`
-
-### Configuration Options
+Config file location:
+- **macOS:** `~/.yakety/config.ini`
+- **Windows:** `%APPDATA%\Yakety\config.ini`
 
 ```ini
 [yakety]
-# Path to custom Whisper model (optional)
-model = /path/to/your/model.bin
+# Custom model path (optional)
+model = /path/to/model.bin
 
-# Launch at login (true/false)
-launch_at_login = false
+# Launch at startup
+launch_at_login = true
 
-# Custom hotkey configuration (automatically saved when changed via GUI)
-# On macOS: Fn key = keycode 63, modifiers 8388608
-# On Windows: Right Ctrl = scancode 29, extended flag 1
-hotkey_keycode = 0
-hotkey_modifiers = 8388608
+# Hotkey configuration (usually set via GUI)
+# Format: KeyCombo = <keycode>:<flags> (hex values)
+# macOS Fn key (default): KeyCombo = 0:800000
+# Windows Right Ctrl (default): KeyCombo = 1D:1
+KeyCombo = 0:800000
 ```
-
-### Using Custom Models
-
-You can use larger or specialized Whisper models:
-
-```bash
-# Download a model (example: large-v3-turbo)
-curl -L -o ~/.yakety/models/ggml-large-v3-turbo-q8_0.bin \
-  "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin"
-
-# Update config.ini
-[yakety]
-model = ~/.yakety/models/ggml-large-v3-turbo-q8_0.bin
-```
-
-If a custom model fails to load, Yakety automatically falls back to the bundled base model.
-
-### Logs
-
-Debug logs are stored with automatic rotation (10MB max, 5 files):
-- **macOS**: `~/Library/Logs/Yakety/`
-- **Windows**: `%LOCALAPPDATA%\Yakety\Logs\`
 
 ## Permissions
 
-### macOS
-Grant accessibility permissions:
-1. System Preferences → Security & Privacy → Privacy → Accessibility
-2. Add Terminal (for CLI) or Yakety (for GUI) to the allowed list
-
-### Windows
-Run as administrator if hotkeys don't work in elevated applications.
-
-## Remote Development (macOS → Windows)
-
-You can develop Yakety on Windows from a macOS machine using Claude Code for seamless cross-platform development:
-
-### Quick Setup
-1. **On Windows**: Run `wsl/setup-wsl-ssh.sh` (one-time setup)
-2. **After reboot**: Run `wsl/start-wsl-ssh.bat` as administrator  
-3. **Tell Claude Code**: `"My Windows machine is at 192.168.1.21, username badlogic, workspace at /mnt/c/workspaces/yakety/"`
-
-### Development Workflow
-```bash
-# Claude Code can execute these automatically:
-rsync -av src/ badlogic@192.168.1.21:/mnt/c/workspaces/yakety/src/  # Sync changes
-ssh badlogic@192.168.1.21 "cd /mnt/c/workspaces/yakety && cmd.exe /c 'build.bat'"  # Build
-ssh badlogic@192.168.1.21 "build/bin/yakety-cli.exe"  # Test
-```
-
-**Benefits**: Edit locally on macOS with fast tools, build/test on Windows via SSH, all automated through Claude Code.
-
-📖 **Full guide**: [wsl/REMOTE_DEVELOPMENT.md](wsl/REMOTE_DEVELOPMENT.md)
-
-## Architecture
-
-See [ARCHITECTURE.md](ARCHITECTURE.md) for details on the modular architecture and how to extend the application.
-
-## Troubleshooting
-
-### Build Issues
-- **"whisper.cpp not found"** - The build will automatically clone it
-- **"Model download failed"** - Check internet connection, the build will download ~150MB
-- **"Ninja not found"** - Install Ninja or use `cmake -G "Unix Makefiles"` instead
-
-### Runtime Issues
-- **"No speech detected"** - Speak clearly and ensure microphone permissions are granted
-- **"Hotkey not working"** - Check accessibility/admin permissions
-- **"App damaged" (macOS)** - The build automatically signs the app, but you may need to allow it in Security settings
+- **macOS:** Grand microphone permissions, grant accessibility permissions in System Preferences → Security & Privacy → Privacy → Accessibility
+- **Windows:** Run as administrator if needed for hotkeys in elevated apps
 
 ## License
 
-Proprietary software © 2025 Mario Zechner. All rights reserved.
+Proprietary © 2025 Mario Zechner
 
-## Acknowledgments
+---
 
-- [OpenAI Whisper](https://github.com/openai/whisper) for the speech recognition model (MIT License)
-- [whisper.cpp](https://github.com/ggerganov/whisper.cpp) by ggml authors for the C++ implementation (MIT License)
-- [ggml](https://github.com/ggerganov/ggml) by ggml authors for the tensor library (MIT License)
-- [miniaudio](https://github.com/mackron/miniaudio) by David Reid for cross-platform audio (Public Domain)
+**Architecture:** [ARCHITECTURE.md](ARCHITECTURE.md)
+**Remote Development:** [wsl/REMOTE_DEVELOPMENT.md](wsl/REMOTE_DEVELOPMENT.md)
