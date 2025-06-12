@@ -1,0 +1,12 @@
+services:
+    web:
+        environment:
+            VIRTUAL_HOST: yakety.ai,www.yakety.ai
+            LETSENCRYPT_HOST: yakety.ai,www.yakety.ai
+            LETSENCRYPT_EMAIL: contact@mariozechner.at
+        networks:
+            - reverse_proxy
+networks:
+    reverse_proxy:
+        external:
+            name: nginx-proxy

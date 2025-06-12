@@ -1,0 +1,30 @@
+services:
+    web:
+        image: nginx:alpine
+        restart: always
+        volumes:
+            - ./nginx.conf:/etc/nginx/conf.d/default.conf
+            - ../html:/www
+            - ./data/logs:/logs
+        links:
+            - server
+        networks:
+            - network
+
+    server:
+        build:
+            context: ..
+            dockerfile: docker/Dockerfile
+        stop_grace_period: 0s
+        environment:
+            PORT: 3333
+        volumes:
+            - ./data:/data
+            - ../build:/app
+            - ../html:/www
+        networks:
+            - network
+
+networks:
+    network:
+        driver: bridge

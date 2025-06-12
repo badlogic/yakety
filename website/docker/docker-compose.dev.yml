@@ -1,0 +1,10 @@
+services:
+    web:
+        ports:
+            - 8080:80
+    server:
+        ports:
+            - 9230:9230
+            - 3333:3333
+        environment:
+            - DEV=true
