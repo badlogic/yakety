@@ -523,21 +523,11 @@ bool models_dialog_show(const char *title, char *selected_model, size_t model_bu
     }
     
     NSButton *actionButton;
-    NSString *buttonText;
-    NSColor *buttonColor;
-    
     if (isCurrentModel) {
-        buttonText = @"Selected";
-        buttonColor = [NSColor systemOrangeColor];
-    } else if ([state isEqualToString:@"available"]) {
-        buttonText = @"Download";
-        buttonColor = [NSColor systemBlueColor];
+        actionButton = dialog_create_button(@"Selected", NSMakeRect(520, 30, 100, 35), [NSColor systemOrangeColor]);
     } else {
-        buttonText = @"Select";
-        buttonColor = [NSColor systemBlueColor];
+        actionButton = dialog_create_button(@"Select", NSMakeRect(520, 30, 100, 35), [NSColor systemBlueColor]);
     }
-    
-    actionButton = dialog_create_button(buttonText, NSMakeRect(520, 30, 100, 35), buttonColor);
     
     // Store model data with button
     objc_setAssociatedObject(actionButton, "modelData", modelData, OBJC_ASSOCIATION_RETAIN);
