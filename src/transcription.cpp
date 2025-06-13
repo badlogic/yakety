@@ -398,7 +398,8 @@ int transcribe_file(const char *audio_file, char *result, size_t result_size) {
 void transcription_cleanup(void) {
 	if (ctx != NULL) {
 		log_info("🧹 Cleaning up Whisper context\n");
-		whisper_free(ctx);
-		ctx = NULL;
+		struct whisper_context *old_ctx = ctx;
+		ctx = NULL;  // Set to NULL first to prevent double cleanup
+		whisper_free(old_ctx);
 	}
 }

@@ -14,6 +14,13 @@ typedef struct {
 // Get available downloadable models
 static const ModelInfo DOWNLOADABLE_MODELS[] = {
     {
+        .name = "Whisper Tiny Q8",
+        .description = "Ultra-lightweight model for basic transcription. Fastest processing with minimal memory usage, ideal for simple voice notes and testing. Works well on older hardware.",
+        .size = "40 MB", 
+        .filename = "ggml-tiny-q8_0.bin",
+        .download_url = "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q8_0.bin"
+    },
+    {
         .name = "Whisper Large-v3 Turbo Q8",
         .description = "Premium model delivering the highest accuracy with optimized speed. Best for challenging audio conditions, technical content, and professional transcription. Requires modern hardware with sufficient memory.",
         .size = "800 MB", 
