@@ -349,3 +349,43 @@ void utils_atomic_write_int(int *ptr, int value) {
     // Use GCC builtin atomic store
     __atomic_store_n(ptr, value, __ATOMIC_SEQ_CST);
 }
+
+// Mutex implementation using pthread
+struct utils_mutex {
+    pthread_mutex_t mutex;
+};
+
+utils_mutex_t* utils_mutex_create(void) {
+    utils_mutex_t* m = malloc(sizeof(utils_mutex_t));
+    if (!m) return NULL;
+    
+    if (pthread_mutex_init(&m->mutex, NULL) != 0) {
+        free(m);
+        return NULL;
+    }
+    
+    return m;
+}
+
+void utils_mutex_destroy(utils_mutex_t* mutex) {
+    if (mutex) {
+        pthread_mutex_destroy(&mutex->mutex);
+        free(mutex);
+    }
+}
+
+void utils_mutex_lock(utils_mutex_t* mutex) {
+    if (mutex) {
+        pthread_mutex_lock(&mutex->mutex);
+    }
+}
+
+void utils_mutex_unlock(utils_mutex_t* mutex) {
+    if (mutex) {
+        pthread_mutex_unlock(&mutex->mutex);
+    }
+}
+
+void* utils_thread_id(void) {
+    return (void*)pthread_self();
+}

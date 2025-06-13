@@ -45,4 +45,15 @@ void utils_atomic_write_bool(bool *ptr, bool value);
 int utils_atomic_read_int(int *ptr);
 void utils_atomic_write_int(int *ptr, int value);
 
+// Mutex API for critical sections
+typedef struct utils_mutex utils_mutex_t;
+
+utils_mutex_t* utils_mutex_create(void);
+void utils_mutex_destroy(utils_mutex_t* mutex);
+void utils_mutex_lock(utils_mutex_t* mutex);
+void utils_mutex_unlock(utils_mutex_t* mutex);
+
+// Cross-platform thread ID for debugging
+void* utils_thread_id(void);
+
 #endif // UTILS_H

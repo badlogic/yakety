@@ -6,6 +6,7 @@
 #include "app.h"
 #include "dialog.h"
 #include "keylogger.h"
+#include "logging.h"
 #include "menu.h"
 #include "overlay.h"
 #include "preferences.h"
@@ -47,26 +48,37 @@ static void menu_licenses(void) {
                             "See LICENSES.md for full details.");
 }
 
-// Async model reload function
+// Async model reload function - RUNS ON BACKGROUND THREAD
 static void *reload_model_async(void *arg) {
     (void) arg;
+    
+    log_info("reload_model_async() ENTRY - thread=%p", utils_thread_id());
 
     // Pause keylogger to prevent recording during model reload
+    log_info("About to pause keylogger - thread=%p", utils_thread_id());
     keylogger_pause();
+    log_info("Keylogger paused - thread=%p", utils_thread_id());
 
     // Cleanup current model
+    log_info("About to cleanup transcription - thread=%p", utils_thread_id());
     transcription_cleanup();
+    log_info("Transcription cleanup complete - thread=%p", utils_thread_id());
 
     // Load new model
+    log_info("About to get model path - thread=%p", utils_thread_id());
     const char *model_path = utils_get_model_path();
     if (!model_path) {
+        log_info("No model path found - thread=%p", utils_thread_id());
         // Schedule error dialog on main thread
         utils_execute_main_thread(0, show_error_dialog, (void *) "Could not find the specified model file.");
         keylogger_resume(); // Resume keylogger on error
         return (void *) 0;
     }
+    log_info("Got model path: %s - thread=%p", model_path, utils_thread_id());
 
+    log_info("About to init transcription - thread=%p", utils_thread_id());
     if (transcription_init(model_path) != 0) {
+        log_info("Transcription init failed - thread=%p", utils_thread_id());
         // Check if it's a corrupted downloaded file and delete it
         const char *current_model = preferences_get_string("model");
         if (current_model && strlen(current_model) > 0) {
@@ -89,45 +101,62 @@ static void *reload_model_async(void *arg) {
         keylogger_resume(); // Resume keylogger on error
         return (void *) 0;
     }
+    log_info("Transcription init success - thread=%p", utils_thread_id());
 
     // Set language from preferences
     const char *language = preferences_get_string("language");
     if (language) {
+        log_info("Setting language to %s - thread=%p", language, utils_thread_id());
         transcription_set_language(language);
     } else {
+        log_info("Setting default language to en - thread=%p", utils_thread_id());
         transcription_set_language("en"); // Default to English
     }
 
     // Resume keylogger after successful reload
+    log_info("About to resume keylogger - thread=%p", utils_thread_id());
     keylogger_resume();
+    log_info("reload_model_async() SUCCESS EXIT - thread=%p", utils_thread_id());
 
     return (void *) 1;
 }
 
-// Reload model and language settings
+// Reload model and language settings - RUNS ON MAIN THREAD
 static void reload_model_and_language(void) {
+    log_info("reload_model_and_language() ENTRY - main thread=%p", utils_thread_id());
+    
     if (utils_atomic_read_bool(&g_model_reloading)) {
+        log_info("Already reloading, exiting - main thread=%p", utils_thread_id());
         return; // Already reloading, exit silently
     }
 
+    log_info("Setting g_model_reloading=true - main thread=%p", utils_thread_id());
     utils_atomic_write_bool(&g_model_reloading, true);
 
     // Show loading overlay on main thread
+    log_info("Showing overlay - main thread=%p", utils_thread_id());
     overlay_show("Loading model");
 
     // Start reload using cross-platform async execution
+    log_info("About to call app_execute_async_blocking - main thread=%p", utils_thread_id());
     void *result = app_execute_async_blocking(reload_model_async, NULL);
+    log_info("app_execute_async_blocking returned %p - main thread=%p", result, utils_thread_id());
 
     // Hide overlay on main thread
+    log_info("Hiding overlay - main thread=%p", utils_thread_id());
     overlay_hide();
 
     // Always reset the flag on the main thread
+    log_info("Setting g_model_reloading=false - main thread=%p", utils_thread_id());
     utils_atomic_write_bool(&g_model_reloading, false);
 
     if (!result) {
+        log_info("Showing error dialog - main thread=%p", utils_thread_id());
         // Show error on failure
         dialog_error("Model Reload Error", "Failed to reload model.");
     }
+    
+    log_info("reload_model_and_language() EXIT - main thread=%p", utils_thread_id());
 }
 
 static void menu_models(void) {

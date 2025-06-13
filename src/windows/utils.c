@@ -431,3 +431,39 @@ void utils_atomic_write_int(int *ptr, int value) {
     LONG *long_ptr = (LONG *) ptr;
     InterlockedExchange(long_ptr, (LONG) value);
 }
+
+// Mutex implementation using Windows CRITICAL_SECTION
+struct utils_mutex {
+    CRITICAL_SECTION cs;
+};
+
+utils_mutex_t* utils_mutex_create(void) {
+    utils_mutex_t* m = malloc(sizeof(utils_mutex_t));
+    if (!m) return NULL;
+    
+    InitializeCriticalSection(&m->cs);
+    return m;
+}
+
+void utils_mutex_destroy(utils_mutex_t* mutex) {
+    if (mutex) {
+        DeleteCriticalSection(&mutex->cs);
+        free(mutex);
+    }
+}
+
+void utils_mutex_lock(utils_mutex_t* mutex) {
+    if (mutex) {
+        EnterCriticalSection(&mutex->cs);
+    }
+}
+
+void utils_mutex_unlock(utils_mutex_t* mutex) {
+    if (mutex) {
+        LeaveCriticalSection(&mutex->cs);
+    }
+}
+
+void* utils_thread_id(void) {
+    return (void*)(uintptr_t)GetCurrentThreadId();
+}

@@ -15,8 +15,15 @@ extern "C" {
 #include "../whisper.cpp/ggml/include/ggml.h"
 
 static struct whisper_context *ctx = NULL;
-static bool ctx_initializing = false;
+static utils_mutex_t *ctx_mutex = NULL;  // Thread safety for transcription context
 static char g_language[16] = "en";// Default to English
+
+// Initialize mutex on first use
+static void ensure_mutex_initialized(void) {
+    if (ctx_mutex == NULL) {
+        ctx_mutex = utils_mutex_create();
+    }
+}
 
 // Custom log callback that suppresses whisper/ggml logs
 static void null_log_callback(enum ggml_log_level level, const char *text, void *user_data) {
@@ -35,24 +42,34 @@ void transcription_set_language(const char *language) {
 }
 
 int transcription_init(const char *model_path) {
+	ensure_mutex_initialized();
+	
+	log_debug("transcription_init() ENTRY - thread=%p, model_path=%s", 
+		   (void*)pthread_self(), model_path ? model_path : "NULL");
+		   
 	if (!model_path) {
-		log_error("ERROR: No model path provided\n");
+		log_error("ERROR: No model path provided");
 		return -1;
 	}
 
-	// Prevent double initialization
-	if (ctx != NULL || ctx_initializing) {
-		log_info("Transcription already initialized or initializing\n");
+	utils_mutex_lock(ctx_mutex);
+	log_debug("Acquired transcription mutex - thread=%p", (void*)pthread_self());
+
+	// Check if already initialized
+	if (ctx != NULL) {
+		log_debug("Already initialized, returning 0 - thread=%p", (void*)pthread_self());
+		log_info("Transcription already initialized");
+		utils_mutex_unlock(ctx_mutex);
 		return 0;
 	}
 
-	ctx_initializing = true;
-
 	// Disable whisper/ggml logging
+	log_debug("Setting whisper logging callbacks - thread=%p", (void*)pthread_self());
 	ggml_log_set(null_log_callback, NULL);
 	whisper_log_set(null_log_callback, NULL);
 
-	log_info("🧠 Loading Whisper model: %s\n", model_path);
+	log_debug("About to load whisper model - thread=%p", (void*)pthread_self());
+	log_info("🧠 Loading Whisper model: %s", model_path);
 
 	double start = utils_now();
 
@@ -67,35 +84,49 @@ int transcription_init(const char *model_path) {
 			 cparams.flash_attn ? "YES" : "NO",
 			 cparams.use_gpu ? "YES" : "NO");
 
+	log_debug("About to call whisper_init_from_file_with_params - thread=%p", (void*)pthread_self());
 	ctx = whisper_init_from_file_with_params(model_path, cparams);
+	log_debug("whisper_init_from_file_with_params returned ctx=%p - thread=%p", ctx, (void*)pthread_self());
 
 	double duration = utils_now() - start;
 
 	if (!ctx) {
-		log_error("ERROR: Failed to initialize Whisper from model file: %s\n", model_path);
-		ctx_initializing = false;
+		log_debug("whisper_init failed - thread=%p", (void*)pthread_self());
+		log_error("ERROR: Failed to initialize Whisper from model file: %s", model_path);
+		utils_mutex_unlock(ctx_mutex);
 		return -1;
 	}
 
-	log_info("✅ Whisper initialized successfully (took %.0f ms)\n", duration * 1000.0);
-	log_info("⚡ Requested - Flash Attention: %s, GPU: %s\n",
+	log_debug("whisper_init success, about to log completion - thread=%p", (void*)pthread_self());
+	log_info("✅ Whisper initialized successfully (took %.0f ms)", duration * 1000.0);
+	log_info("⚡ Requested - Flash Attention: %s, GPU: %s",
 			 cparams.flash_attn ? "enabled" : "disabled",
 			 cparams.use_gpu ? "enabled" : "disabled");
 
-	ctx_initializing = false;
+	log_debug("Releasing transcription mutex and returning 0 - thread=%p", (void*)pthread_self());
+	utils_mutex_unlock(ctx_mutex);
 	return 0;
 }
 
 
 char *transcription_process(const float *audio_data, int n_samples, int sample_rate) {
 	(void) sample_rate;// Currently unused
-	if (ctx == NULL) {
-		log_error("ERROR: Whisper not initialized\n");
+	ensure_mutex_initialized();
+	
+	log_debug("transcription_process() ENTRY - thread=%p", (void*)pthread_self());
+	
+	if (audio_data == NULL || n_samples <= 0) {
+		log_error("ERROR: Invalid parameters for transcription");
 		return NULL;
 	}
-
-	if (audio_data == NULL || n_samples <= 0) {
-		log_error("ERROR: Invalid parameters for transcription\n");
+	
+	utils_mutex_lock(ctx_mutex);
+	log_debug("Acquired transcription mutex for processing - thread=%p", (void*)pthread_self());
+	
+	if (ctx == NULL) {
+		log_debug("Context not available - thread=%p", (void*)pthread_self());
+		log_error("ERROR: Whisper not initialized");
+		utils_mutex_unlock(ctx_mutex);
 		return NULL;
 	}
 
@@ -205,6 +236,8 @@ char *transcription_process(const float *audio_data, int n_samples, int sample_r
 			// Clear the result - this is a non-speech token or annotation
 			result[0] = '\0';
 			log_info("✅ Filtered out non-speech token\n");
+			log_debug("Releasing transcription mutex (filtered token) - thread=%p", (void*)pthread_self());
+			utils_mutex_unlock(ctx_mutex);
 			return result;
 		}
 	}
@@ -237,6 +270,9 @@ char *transcription_process(const float *audio_data, int n_samples, int sample_r
 
 	log_info("✅ Transcription complete: \"%s\"\n", result);
 	log_info("⏱️  Total transcription process took: %.0f ms\n", total_duration * 1000.0);
+	
+	log_debug("Releasing transcription mutex (normal completion) - thread=%p", (void*)pthread_self());
+	utils_mutex_unlock(ctx_mutex);
 	return result;
 }
 
@@ -407,11 +443,25 @@ int transcribe_file(const char *audio_file, char *result, size_t result_size) {
 
 
 void transcription_cleanup(void) {
+	ensure_mutex_initialized();
+	
+	log_debug("transcription_cleanup() ENTRY - thread=%p", (void*)pthread_self());
+	
+	utils_mutex_lock(ctx_mutex);
+	log_debug("Acquired transcription mutex for cleanup - thread=%p", (void*)pthread_self());
+	
 	if (ctx != NULL) {
-		log_info("🧹 Cleaning up Whisper context\n");
+		log_info("🧹 Cleaning up Whisper context");
+		log_debug("About to save ctx pointer and set to NULL - thread=%p", (void*)pthread_self());
 		struct whisper_context *old_ctx = ctx;
 		ctx = NULL;  // Set to NULL first to prevent double cleanup
-		ctx_initializing = false;  // Reset initialization flag
+		log_debug("About to call whisper_free(%p) - thread=%p", old_ctx, (void*)pthread_self());
 		whisper_free(old_ctx);
+		log_debug("whisper_free() completed - thread=%p", (void*)pthread_self());
+	} else {
+		log_debug("ctx is NULL, nothing to cleanup - thread=%p", (void*)pthread_self());
 	}
+	
+	log_debug("Releasing transcription mutex and exiting cleanup - thread=%p", (void*)pthread_self());
+	utils_mutex_unlock(ctx_mutex);
 }
