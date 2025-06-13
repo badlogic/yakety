@@ -15,7 +15,7 @@
 // Global variables for menu management
 int g_launch_menu_index = -1;
 
-// Global flag to track if model is being reloaded
+// Global flag to track if model is being reloaded - use atomic access
 static bool g_model_reloading = false;
 
 // Helper function to show error dialog on main thread
@@ -63,7 +63,6 @@ static void *reload_model_async(void *arg) {
         // Schedule error dialog on main thread
         utils_execute_main_thread(0, show_error_dialog, (void *) "Could not find the specified model file.");
         keylogger_resume(); // Resume keylogger on error
-        g_model_reloading = false;
         return (void *) 0;
     }
 
@@ -88,7 +87,6 @@ static void *reload_model_async(void *arg) {
         }
 
         keylogger_resume(); // Resume keylogger on error
-        g_model_reloading = false;
         return (void *) 0;
     }
 
@@ -103,17 +101,16 @@ static void *reload_model_async(void *arg) {
     // Resume keylogger after successful reload
     keylogger_resume();
 
-    g_model_reloading = false;
     return (void *) 1;
 }
 
 // Reload model and language settings
 static void reload_model_and_language(void) {
-    if (g_model_reloading) {
+    if (utils_atomic_read_bool(&g_model_reloading)) {
         return; // Already reloading, exit silently
     }
 
-    g_model_reloading = true;
+    utils_atomic_write_bool(&g_model_reloading, true);
 
     // Show loading overlay on main thread
     overlay_show("Loading model");
@@ -124,16 +121,17 @@ static void reload_model_and_language(void) {
     // Hide overlay on main thread
     overlay_hide();
 
+    // Always reset the flag on the main thread
+    utils_atomic_write_bool(&g_model_reloading, false);
+
     if (!result) {
-        // Only show error on failure
+        // Show error on failure
         dialog_error("Model Reload Error", "Failed to reload model.");
-        g_model_reloading = false;
     }
-    // Success case is handled in reload_model_async
 }
 
 static void menu_models(void) {
-    if (g_model_reloading) {
+    if (utils_atomic_read_bool(&g_model_reloading)) {
         dialog_info("Model Loading", "Model is currently being reloaded. Please wait before making changes.");
         return;
     }

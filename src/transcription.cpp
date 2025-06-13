@@ -15,6 +15,7 @@ extern "C" {
 #include "../whisper.cpp/ggml/include/ggml.h"
 
 static struct whisper_context *ctx = NULL;
+static bool ctx_initializing = false;
 static char g_language[16] = "en";// Default to English
 
 // Custom log callback that suppresses whisper/ggml logs
@@ -38,6 +39,14 @@ int transcription_init(const char *model_path) {
 		log_error("ERROR: No model path provided\n");
 		return -1;
 	}
+
+	// Prevent double initialization
+	if (ctx != NULL || ctx_initializing) {
+		log_info("Transcription already initialized or initializing\n");
+		return 0;
+	}
+
+	ctx_initializing = true;
 
 	// Disable whisper/ggml logging
 	ggml_log_set(null_log_callback, NULL);
@@ -64,6 +73,7 @@ int transcription_init(const char *model_path) {
 
 	if (!ctx) {
 		log_error("ERROR: Failed to initialize Whisper from model file: %s\n", model_path);
+		ctx_initializing = false;
 		return -1;
 	}
 
@@ -72,6 +82,7 @@ int transcription_init(const char *model_path) {
 			 cparams.flash_attn ? "enabled" : "disabled",
 			 cparams.use_gpu ? "enabled" : "disabled");
 
+	ctx_initializing = false;
 	return 0;
 }
 
@@ -400,6 +411,7 @@ void transcription_cleanup(void) {
 		log_info("🧹 Cleaning up Whisper context\n");
 		struct whisper_context *old_ctx = ctx;
 		ctx = NULL;  // Set to NULL first to prevent double cleanup
+		ctx_initializing = false;  // Reset initialization flag
 		whisper_free(old_ctx);
 	}
 }

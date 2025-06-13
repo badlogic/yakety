@@ -472,8 +472,8 @@ bool models_dialog_show(const char *title, char *selected_model, size_t model_bu
     [descLabel setLineBreakMode:NSLineBreakByWordWrapping];
     [cardView addSubview:descLabel];
     
-    // Size info and status badge
-    NSTextField *sizeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 8, 200, 16)];
+    // Size info
+    NSTextField *sizeLabel = [[NSTextField alloc] initWithFrame:NSMakeRect(20, 8, 80, 16)];
     [sizeLabel setStringValue:[NSString stringWithFormat:@"Size: %@", modelData[@"size"]]];
     [sizeLabel setBordered:NO];
     [sizeLabel setEditable:NO];
@@ -483,32 +483,28 @@ bool models_dialog_show(const char *title, char *selected_model, size_t model_bu
     [sizeLabel setFont:[NSFont systemFontOfSize:10]];
     [cardView addSubview:sizeLabel];
     
-    // Status badge
+    // Status badge - small and next to size
     NSString *state = modelData[@"state"];
-    NSTextField *statusBadge = [[NSTextField alloc] initWithFrame:NSMakeRect(430, 65, 80, 22)];
+    NSTextField *statusBadge = [[NSTextField alloc] initWithFrame:NSMakeRect(110, 6, 70, 18)];
     [statusBadge setBordered:NO];
     [statusBadge setEditable:NO];
     [statusBadge setSelectable:NO];
     [statusBadge setAlignment:NSTextAlignmentCenter];
-    [statusBadge setFont:[NSFont boldSystemFontOfSize:11]];
+    [statusBadge setFont:[NSFont boldSystemFontOfSize:9]];
     
-    if ([state isEqualToString:@"downloaded"]) {
-        [statusBadge setStringValue:@"✓ Downloaded"];
+    if ([state isEqualToString:@"downloaded"] || [state isEqualToString:@"bundled"]) {
+        [statusBadge setStringValue:@"Installed"];
         [statusBadge setTextColor:[NSColor systemGreenColor]];
-        [statusBadge setBackgroundColor:[[NSColor systemGreenColor] colorWithAlphaComponent:0.1]];
-    } else if ([state isEqualToString:@"available"]) {
-        [statusBadge setStringValue:@"↓ Available"];
-        [statusBadge setTextColor:[NSColor systemBlueColor]];
-        [statusBadge setBackgroundColor:[[NSColor systemBlueColor] colorWithAlphaComponent:0.1]];
+        [statusBadge setBackgroundColor:[[NSColor systemGreenColor] colorWithAlphaComponent:0.15]];
     } else {
-        [statusBadge setStringValue:@"• Bundled"];
-        [statusBadge setTextColor:[NSColor systemOrangeColor]];
-        [statusBadge setBackgroundColor:[[NSColor systemOrangeColor] colorWithAlphaComponent:0.1]];
+        [statusBadge setStringValue:@"Available"];
+        [statusBadge setTextColor:[NSColor systemBlueColor]];
+        [statusBadge setBackgroundColor:[[NSColor systemBlueColor] colorWithAlphaComponent:0.15]];
     }
     
     [statusBadge setDrawsBackground:YES];
     [statusBadge setWantsLayer:YES];
-    [statusBadge.layer setCornerRadius:4.0];
+    [statusBadge.layer setCornerRadius:3.0];
     [cardView addSubview:statusBadge];
     
     // Action button
