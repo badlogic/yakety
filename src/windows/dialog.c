@@ -1,13 +1,14 @@
-#include "../dialog.h"
-#include "../keylogger.h"
+#define WIN32_LEAN_AND_MEAN
+#include <windows.h>
 #include <commctrl.h>
 #include <dwmapi.h>
 #include <shellscalingapi.h>
+#include <windowsx.h>
 #include <stdbool.h>
 #include <stdlib.h>
 #include <string.h>
-#include <windows.h>
-#include <windowsx.h>
+#include "../dialog.h"
+#include "../keylogger.h"
 
 #pragma comment(lib, "dwmapi.lib")
 #pragma comment(lib, "Shcore.lib")
