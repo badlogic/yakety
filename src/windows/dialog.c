@@ -550,8 +550,9 @@ bool dialog_confirm(const char *title, const char *message) {
 
 // TODO: Implement full models dialog for Windows
 // For now, provide a basic implementation to satisfy the interface
-bool dialog_models(const char *title, char *selected_model, size_t model_buffer_size, 
-                   char *selected_language, size_t language_buffer_size) {
+bool dialog_models_and_language(const char *title, char *selected_model, size_t model_buffer_size, 
+                                char *selected_language, size_t language_buffer_size,
+                                char *download_url, size_t url_buffer_size) {
     // Show a simple info dialog for now
     show_custom_dialog(title, "Models dialog not yet implemented on Windows.\nUsing default settings.", MB_OK | MB_ICONINFORMATION);
     
@@ -562,5 +563,20 @@ bool dialog_models(const char *title, char *selected_model, size_t model_buffer_
     strncpy(selected_language, "en", language_buffer_size - 1);
     selected_language[language_buffer_size - 1] = '\0';
     
+    strncpy(download_url, "", url_buffer_size - 1);
+    download_url[url_buffer_size - 1] = '\0';
+    
     return true; // Return true to indicate defaults were set
+}
+
+// TODO: Implement model download dialog for Windows
+// For now, provide a basic implementation to satisfy the interface
+int dialog_model_download(const char *model_name, const char *download_url, const char *file_path) {
+    char message[512];
+    snprintf(message, sizeof(message), "Model download dialog not yet implemented on Windows.\nModel: %s\nURL: %s\nPath: %s", 
+             model_name, download_url, file_path);
+    
+    show_custom_dialog("Download Model", message, MB_OK | MB_ICONINFORMATION);
+    
+    return 2; // Return error code to indicate not implemented
 }
