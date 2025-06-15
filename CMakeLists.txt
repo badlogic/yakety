@@ -77,6 +77,9 @@ elseif(WIN32)
         src/windows/overlay.c
         src/windows/dialog.c
         src/windows/dialog_keycapture.c
+        src/windows/dialogs/dialog_framework.c
+        src/windows/dialogs/dialog_utils.c
+        src/windows/dialogs/dialog_components.c
         src/windows/menu.c
         src/windows/keylogger.c
         src/windows/app.c
