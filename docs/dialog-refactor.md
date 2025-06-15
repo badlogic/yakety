@@ -190,11 +190,22 @@ typedef struct {
 - `src/mac/dialogs/hotkey_dialog.swift` - Target design for hotkey dialog
 - `src/mac/dialogs/dialog_utils.swift` - SwiftUI modal dialog utilities
 
-### Design Screenshots
-- `dialog-refactor.md` (this file) - Contains visual references
-- Models dialog: 520x400px with scrollable list and language dropdown
-- Download dialog: 400x200px with progress bar and status text
-- Hotkey dialog: 400x300px with capture area and instructions
+### Design Screenshots and References
+- `docs/macos-models-dialog.png` - Models dialog screenshot (520x400px)
+- `docs/macos-download-dialog.png` - Download dialog screenshot (400x200px)  
+- `docs/macos-hotkey-dialog.png` - Hotkey dialog screenshot (400x300px)
+
+#### Models Dialog Visual Specifications (from docs/macos-models-dialog.png)
+- **Size**: 520x400px with dark theme
+- **Header**: App icon (32x32) + "Select Model and Language" title
+- **Language Section**: "Language" label + dropdown (full width) + help text
+- **Model Section**: "Model" label + scrollable list (278px height)
+- **Model Cards**: Rounded rectangles, 2px blue border when selected
+  - Title in white, description in gray
+  - Size info in small gray text
+  - Status badges: "Bundled" (blue), "Installed" (green), delete button (red trash icon)
+- **Buttons**: "Cancel" + "Apply" (bottom right, 12px spacing)
+- **Layout**: 20px padding throughout, consistent spacing
 
 ## Implementation Tasks
 
