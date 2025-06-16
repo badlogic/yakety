@@ -47,4 +47,7 @@ int menu_setup_items(MenuSystem *menu);
 // Global launch menu index (for platform implementations)
 extern int g_launch_menu_index;
 
+// Function to reload hotkey settings (implemented in main.c)
+void reload_hotkey_settings(void);
+
 #endif // MENU_H

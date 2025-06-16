@@ -16,6 +16,7 @@ struct HotkeyDialogView: View {
     @State private var currentModifiers: NSEvent.ModifierFlags = []
     @State private var allPressedKeys: Set<UInt16> = []
     @State private var maxModifiers: NSEvent.ModifierFlags = []
+    @State private var pushToToggle = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -55,6 +56,13 @@ struct HotkeyDialogView: View {
                     .onTapGesture {
                         startCapturing()
                     }
+
+                // Toggle mode checkbox
+                HStack {
+                    Toggle("Push to toggle (press once to start, once to stop)", isOn: $pushToToggle)
+                        .font(.body)
+                    Spacer()
+                }
             }
             .padding(.horizontal, 20)
             .padding(.bottom, 16)
@@ -74,6 +82,8 @@ struct HotkeyDialogView: View {
                     stopCapturing()
                     if hasValidCombination {
                         state.capturedCombination = capturedCombination
+                        // Save toggle mode preference
+                        saveToggleMode()
                         state.dialogResult = true
                     } else {
                         state.dialogResult = false
@@ -98,6 +108,7 @@ struct HotkeyDialogView: View {
         ))
         .onAppear {
             loadCurrentHotkey()
+            loadToggleMode()
         }
     }
     
@@ -130,6 +141,19 @@ struct HotkeyDialogView: View {
             capturedKeys = "No hotkey set"
             hasValidCombination = false
         }
+    }
+    
+    private func loadToggleMode() {
+        pushToToggle = "push_to_toggle".withCString { key in
+            preferences_get_bool(key, false)
+        }
+    }
+    
+    private func saveToggleMode() {
+        "push_to_toggle".withCString { key in
+            preferences_set_bool(key, pushToToggle)
+        }
+        _ = preferences_save()
     }
     
     private func formatKeyComboForDisplay(_ combo: KeyCombination) -> String {
@@ -522,6 +546,15 @@ func keylogger_resume()
 @_silgen_name("preferences_load_key_combination")
 func preferences_load_key_combination(_ combo: UnsafeMutableRawPointer) -> Bool
 
+@_silgen_name("preferences_get_bool")
+func preferences_get_bool(_ key: UnsafePointer<CChar>, _ defaultValue: Bool) -> Bool
+
+@_silgen_name("preferences_set_bool")
+func preferences_set_bool(_ key: UnsafePointer<CChar>, _ value: Bool)
+
+@_silgen_name("preferences_save")
+func preferences_save() -> Bool
+
 // MARK: - C Interface Function
 @_cdecl("dialog_keycombination_capture")
 public func dialog_keycombination_capture(
@@ -538,7 +571,7 @@ public func dialog_keycombination_capture(
     let success = runModalDialog(
         content: HotkeyDialogView(state: globalDialogState, title: titleStr, message: messageStr),
         state: globalDialogState,
-        windowSize: NSSize(width: 400, height: 300),
+        windowSize: NSSize(width: 400, height: 340),
         windowTitle: "Key Combination Capture"
     )
 

@@ -9,6 +9,7 @@
 #include "../dialog.h"
 #include "../keylogger.h"
 #include "../logging.h"
+#include "../preferences.h"
 #include <windowsx.h>
 
 #pragma comment(lib, "dwmapi.lib")
@@ -49,6 +50,7 @@ typedef struct {
 // Button IDs
 #define ID_BUTTON_OK 1001
 #define ID_BUTTON_CANCEL 1002
+#define ID_CHECKBOX_TOGGLE 1003
 
 // Global pointer for hook callback
 static KeyCaptureData *g_capture_data = NULL;
@@ -437,6 +439,15 @@ static LRESULT CALLBACK KeyCaptureProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
                                         hwnd, (HMENU) ID_BUTTON_CANCEL, cs->hInstance, NULL);
         SetWindowSubclass(cancel_btn, button_proc, 0, (DWORD_PTR) data);
 
+        // Create toggle mode checkbox
+        HWND toggle_checkbox = CreateWindowW(L"BUTTON", L"Push to toggle (press once to start, once to stop)", 
+                                           WS_CHILD | WS_VISIBLE | BS_AUTOCHECKBOX, 0, 0, 0, 0, // Position set in WM_SIZE
+                                           hwnd, (HMENU) ID_CHECKBOX_TOGGLE, cs->hInstance, NULL);
+        
+        // Set checkbox state based on current preference
+        bool toggle_mode = preferences_get_bool("push_to_toggle", false);
+        SendMessage(toggle_checkbox, BM_SETCHECK, toggle_mode ? BST_CHECKED : BST_UNCHECKED, 0);
+
         // Set focus to the window to receive keyboard input
         SetFocus(hwnd);
 
@@ -453,6 +464,12 @@ static LRESULT CALLBACK KeyCaptureProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
         int button_height = scale_by_dpi(BUTTON_HEIGHT, dpi_scale);
         int padding = scale_by_dpi(DIALOG_PADDING, dpi_scale);
         int spacing = scale_by_dpi(BUTTON_SPACING, dpi_scale);
+
+        // Position checkbox above buttons
+        int checkbox_height = scale_by_dpi(20, dpi_scale);
+        int checkbox_y = rect.bottom - padding - button_height - spacing - checkbox_height;
+        SetWindowPos(GetDlgItem(hwnd, ID_CHECKBOX_TOGGLE), NULL, padding, checkbox_y, 
+                     rect.right - 2 * padding, checkbox_height, SWP_NOZORDER);
 
         // Position buttons at bottom
         int button_y = rect.bottom - padding - button_height;
@@ -637,6 +654,12 @@ static LRESULT CALLBACK KeyCaptureProc(HWND hwnd, UINT msg, WPARAM wParam, LPARA
 
     case WM_COMMAND:
         if (LOWORD(wParam) == ID_BUTTON_OK && data->captured) {
+            // Save toggle mode preference based on checkbox state
+            HWND checkbox = GetDlgItem(hwnd, ID_CHECKBOX_TOGGLE);
+            bool toggle_mode = (SendMessage(checkbox, BM_GETCHECK, 0, 0) == BST_CHECKED);
+            preferences_set_bool("push_to_toggle", toggle_mode);
+            preferences_save();
+            
             PostMessage(hwnd, WM_CLOSE, 1, 0);
         } else if (LOWORD(wParam) == ID_BUTTON_CANCEL) {
             PostMessage(hwnd, WM_CLOSE, 0, 0);
@@ -711,7 +734,7 @@ bool dialog_keycombination_capture(const char *title, const char *message, KeyCo
 
     // Create window
     int width = scale_by_dpi(450, dpi_scale);
-    int height = scale_by_dpi(280, dpi_scale);
+    int height = scale_by_dpi(320, dpi_scale);
     int x = (GetSystemMetrics(SM_CXSCREEN) - width) / 2;
     int y = (GetSystemMetrics(SM_CYSCREEN) - height) / 2;
 

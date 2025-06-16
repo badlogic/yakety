@@ -14,6 +14,12 @@
 #include "transcription.h"
 #include "utils.h"
 
+// Weak symbol for reload_hotkey_settings - stub version for targets without main.c
+__attribute__((weak)) void reload_hotkey_settings(void) {
+    // Stub implementation for binaries that don't have main.c
+    // (like transcribe, recorder, etc.)
+}
+
 // Global variables for menu management
 int g_launch_menu_index = -1;
 
@@ -121,6 +127,9 @@ static void menu_configure_hotkey(void) {
         // Save to preferences
         preferences_save_key_combination(&combo);
         preferences_save();
+        
+        // Reload toggle mode setting in main application state
+        reload_hotkey_settings();
     }
 }
 
