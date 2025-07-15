@@ -5,7 +5,7 @@
 #include <string.h>
 #include <windows.h>
 
-// Keylogger state structure
+// Keylogger context structure
 typedef struct {
     // Hook and callback state (main thread only)
     HHOOK keyboard_hook;
@@ -19,10 +19,11 @@ typedef struct {
     KeyCombination target_combo;
     bool combo_pressed;
     int pressed_count;
-    KeyInfo pressed_keys[4];
-} KeyloggerState;
+    KeyInfo pressed_keys[32];  // Increased to track more keys
+    KeyloggerState state;       // State machine state
+} KeyloggerContext;
 
-static KeyloggerState *g_keylogger = NULL;
+static KeyloggerContext *g_keylogger = NULL;
 
 // Check if two key infos match
 static bool key_info_matches(const KeyInfo *a, const KeyInfo *b) {
@@ -167,7 +168,7 @@ int keylogger_init(KeyCallback on_press, KeyCallback on_release, KeyCallback on_
     }
 
     // Allocate keylogger state
-    g_keylogger = calloc(1, sizeof(KeyloggerState));
+    g_keylogger = calloc(1, sizeof(KeyloggerContext));
     if (!g_keylogger) {
         return -1;
     }
@@ -177,6 +178,7 @@ int keylogger_init(KeyCallback on_press, KeyCallback on_release, KeyCallback on_
     g_keylogger->on_release = on_release;
     g_keylogger->on_cancel = on_key_cancel;
     g_keylogger->userdata = userdata;
+    g_keylogger->state = KEYLOGGER_STATE_IDLE;
 
     // Install low-level keyboard hook
     log_info("Installing keyboard hook...");

@@ -26,7 +26,7 @@ Implement additional key cancellation functionality with precise key state track
    - [x] Add "wait for all keys released" state before accepting new hotkey combinations
 
 3. **Implement precise key state tracking in Windows keylogger**
-   - [ ] Add pressed keys tracking array to monitor all currently pressed keys in `src/windows/keylogger.c`
+   - [x] Add pressed keys tracking array to monitor all currently pressed keys in `src/windows/keylogger.c`
    - [ ] Modify `LowLevelKeyboardProc()` to track key presses/releases and classify keys as combo/non-combo
    - [ ] Implement logic: combo key released while only combo keys pressed → send release callback
    - [ ] Implement logic: non-combo key pressed while combo active → send cancel callback
