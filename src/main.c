@@ -28,6 +28,7 @@
 typedef struct {
     bool recording;
     double recording_start_time;
+    bool toggle_mode;
 } AppState;
 
 static AppState *g_state = NULL;
@@ -35,6 +36,7 @@ static AppState *g_state = NULL;
 // Forward declarations
 static void on_key_press(void *userdata);
 static void on_key_release(void *userdata);
+void reload_hotkey_settings(void);
 
 static void signal_handler(int sig) {
     (void) sig;
@@ -136,6 +138,15 @@ static bool setup_keylogger(void) {
                 log_info("Using default FN key hotkey");
 #endif
             }
+            
+            // Load toggle mode preference
+            g_state->toggle_mode = preferences_get_bool("push_to_toggle", false);
+            if (g_state->toggle_mode) {
+                log_info("Using push-to-toggle recording mode");
+            } else {
+                log_info("Using hold-to-record mode");
+            }
+            
             return true;
         } else {
             // Keylogger init failed - handle permissions
@@ -217,15 +228,47 @@ static void process_recorded_audio(double duration) {
 static void on_key_press(void *userdata) {
     AppState *state = (AppState *) userdata;
 
-    if (!state->recording) {
-        state->recording = true;
-        state->recording_start_time = utils_get_time();
+    if (state->toggle_mode) {
+        // Toggle mode: key press toggles recording state
+        if (!state->recording) {
+            // Start recording
+            state->recording = true;
+            state->recording_start_time = utils_get_time();
 
-        if (audio_recorder_start() == 0) {
-            overlay_show("Recording");
+            if (audio_recorder_start() == 0) {
+                overlay_show("Recording");
+            } else {
+                log_error("Failed to start recording");
+                state->recording = false;
+            }
         } else {
-            log_error("Failed to start recording");
+            // Stop recording
             state->recording = false;
+            double duration = utils_get_time() - state->recording_start_time;
+
+            // Minimum recording duration check
+            if (duration < MIN_RECORDING_DURATION) {
+                log_info("⚠️  Recording too brief (%.2f seconds), ignoring", duration);
+                audio_recorder_stop();
+                overlay_hide();
+                return;
+            }
+
+            // Process the recorded audio
+            process_recorded_audio(duration);
+        }
+    } else {
+        // Hold mode: key press starts recording
+        if (!state->recording) {
+            state->recording = true;
+            state->recording_start_time = utils_get_time();
+
+            if (audio_recorder_start() == 0) {
+                overlay_show("Recording");
+            } else {
+                log_error("Failed to start recording");
+                state->recording = false;
+            }
         }
     }
 }
@@ -233,7 +276,8 @@ static void on_key_press(void *userdata) {
 static void on_key_release(void *userdata) {
     AppState *state = (AppState *) userdata;
 
-    if (state->recording) {
+    // Only handle key release in hold mode (not toggle mode)
+    if (!state->toggle_mode && state->recording) {
         state->recording = false;
         double duration = utils_get_time() - state->recording_start_time;
 
@@ -247,6 +291,18 @@ static void on_key_release(void *userdata) {
 
         // Process the recorded audio
         process_recorded_audio(duration);
+    }
+}
+
+// Public function to reload hotkey settings (called from menu)
+void reload_hotkey_settings(void) {
+    if (g_state) {
+        g_state->toggle_mode = preferences_get_bool("push_to_toggle", false);
+        if (g_state->toggle_mode) {
+            log_info("Switched to push-to-toggle recording mode");
+        } else {
+            log_info("Switched to hold-to-record mode");
+        }
     }
 }
 
@@ -374,7 +430,11 @@ int app_main(int argc, char **argv, bool is_console) {
         return 1;
     }
 
-    AppState state = {0};
+    AppState state = {
+        .recording = false,
+        .recording_start_time = 0.0,
+        .toggle_mode = false
+    };
     g_state = &state;
 
     log_info("Starting app_run() at %.3f seconds", utils_now());
