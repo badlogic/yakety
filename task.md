@@ -1,5 +1,5 @@
 # Whisper.cpp build should use Ninja as the generator if possible
-**Status:** AwaitingCommit
+**Status:** Done
 **Agent PID:** 37703
 
 ## Original Todo
