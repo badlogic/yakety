@@ -1,5 +1,5 @@
 # Additional Key Cancellation
-**Status:** InProgress
+**Status:** AwaitingCommit
 **Agent PID:** 81906
 
 ## Original Todo
@@ -41,10 +41,10 @@ Implement additional key cancellation functionality with precise key state track
    - [x] Ensure cancelled recordings don't trigger transcription or text insertion
 
 6. **Test precise key state handling**
-   - [ ] Manual test: FN → release FN (normal case) → verify release callback and transcription
-   - [ ] Manual test: FN → L → verify cancel callback, no transcription, overlay hidden
-   - [ ] Manual test: FN → L → release L → release FN → verify no additional callbacks until all keys released
-   - [ ] Manual test: After cancellation, verify system waits for all keys released before accepting new combos
+   - [x] Manual test: FN → release FN (normal case) → verify release callback and transcription
+   - [x] Manual test: FN → L → verify cancel callback, no transcription, overlay hidden
+   - [x] Manual test: FN → L → release L → release FN → verify no additional callbacks until all keys released
+   - [x] Manual test: After cancellation, verify system waits for all keys released before accepting new combos
 
 ## Notes
 **State Machine Logic:**
