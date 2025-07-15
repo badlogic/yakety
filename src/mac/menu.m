@@ -90,6 +90,10 @@ int menu_add_separator(MenuSystem *menu) {
 // Singleton menu system state
 static MenuSystem *g_menu = NULL;
 
+MenuSystem *menu_get_system(void) {
+    return g_menu;
+}
+
 int menu_init(void) {
     if (g_menu) {
         return -1; // Already initialized
@@ -100,7 +104,7 @@ int menu_init(void) {
         return -1;
     }
 
-    return menu_setup_items(g_menu);
+    return 0;
 }
 
 void menu_cleanup(void) {

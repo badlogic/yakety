@@ -22,6 +22,7 @@ typedef struct {
 // Singleton menu system API
 int menu_init(void);
 void menu_cleanup(void);
+MenuSystem *menu_get_system(void);
 
 // Show the menu (creates the system tray/menubar with standard items)
 int menu_show(void);

@@ -63,6 +63,13 @@ static bool setup_menu_if_needed(void) {
         return false;
     }
 
+    if (menu_setup_items(menu_get_system()) != 0) {
+        log_error("Failed to setup menu items");
+        menu_cleanup();
+        app_quit();
+        return false;
+    }
+
     if (menu_show() != 0) {
         log_error("Failed to show menu");
         menu_cleanup();

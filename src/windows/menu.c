@@ -37,6 +37,10 @@ static const wchar_t *WINDOW_CLASS_NAME = L"YaketyMenuWindow";
 // Forward declaration for singleton menu system state
 static MenuSystem *g_menu = NULL;
 
+MenuSystem *menu_get_system(void) {
+    return g_menu;
+}
+
 // Initialize dark mode APIs
 static void init_dark_mode() {
     HMODULE hUxtheme = LoadLibraryExW(L"uxtheme.dll", NULL, LOAD_LIBRARY_SEARCH_SYSTEM32);
@@ -155,7 +159,7 @@ int menu_init(void) {
         return -1;
     }
 
-    return menu_setup_items(g_menu);
+    return 0;
 }
 
 void menu_cleanup(void) {
