@@ -19,7 +19,7 @@
       }
     },
     {
-      "name": "debug", 
+      "name": "debug",
       "displayName": "Debug",
       "description": "Debug build with Ninja",
       "binaryDir": "${sourceDir}/build-debug",
@@ -45,23 +45,6 @@
       "cacheVariables": {
         "CMAKE_EXPORT_COMPILE_COMMANDS": "ON"
       }
-    },
-    {
-      "name": "winui3",
-      "displayName": "WinUI3 Release",
-      "description": "Release build with Visual Studio generator for WinUI3 support",
-      "binaryDir": "${sourceDir}/build-winui3",
-      "generator": "Visual Studio 17 2022",
-      "architecture": "x64",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      },
-      "cacheVariables": {
-        "CMAKE_EXPORT_COMPILE_COMMANDS": "ON",
-        "CMAKE_BUILD_TYPE": "Release"
-      }
     }
   ],
   "buildPresets": [
@@ -77,16 +60,6 @@
       "name": "vs-debug",
       "configurePreset": "vs-debug",
       "configuration": "Debug",
-      "condition": {
-        "type": "equals",
-        "lhs": "${hostSystemName}",
-        "rhs": "Windows"
-      }
-    },
-    {
-      "name": "winui3",
-      "configurePreset": "winui3",
-      "configuration": "Release",
       "condition": {
         "type": "equals",
         "lhs": "${hostSystemName}",

@@ -8,6 +8,7 @@ set -e
 CLEAN=false
 PACKAGE=false
 UPLOAD=false
+DEBUG=false
 HELP=false
 
 for arg in "$@"; do
@@ -21,6 +22,9 @@ for arg in "$@"; do
         upload)
             UPLOAD=true
             ;;
+        debug)
+            DEBUG=true
+            ;;
         help|--help|-h)
             HELP=true
             ;;
@@ -32,16 +36,19 @@ for arg in "$@"; do
 done
 
 if [ "$HELP" = true ]; then
-    echo "Usage: $0 [clean] [package] [upload]"
+    echo "Usage: $0 [clean] [debug] [package] [upload]"
     echo ""
     echo "Options:"
     echo "  clean    - Clean previous build directories"
+    echo "  debug    - Use debug preset instead of release"
     echo "  package  - Create distribution packages after building"
     echo "  upload   - Upload packages to server after building and packaging"
     echo ""
     echo "Examples:"
-    echo "  $0                    # Just build"
+    echo "  $0                    # Just build (release)"
+    echo "  $0 debug             # Build with debug preset"
     echo "  $0 clean             # Clean and build"
+    echo "  $0 clean debug       # Clean and build with debug preset"
     echo "  $0 package           # Build and package"
     echo "  $0 clean package     # Clean, build, and package"
     echo "  $0 clean package upload  # Clean, build, package, and upload"
@@ -69,18 +76,30 @@ else
 fi
 echo
 
-# Configure with release preset (uses Ninja by default)
-echo "Configuring build..."
-cmake --preset release
-
-echo
-echo "Building..."
-cmake --build --preset release
+# Configure with appropriate preset
+if [ "$DEBUG" = true ]; then
+    echo "Configuring debug build..."
+    cmake --preset debug
+    echo
+    echo "Building..."
+    cmake --build --preset debug
+else
+    echo "Configuring release build..."
+    cmake --preset release
+    echo
+    echo "Building..."
+    cmake --build --preset release
+fi
 
 echo
 echo "✅ Build complete!"
-echo "   CLI executable: ./build/bin/yakety-cli"
-echo "   App bundle: ./build/bin/Yakety.app (macOS only)"
+if [ "$DEBUG" = true ]; then
+    echo "   CLI executable: ./build-debug/bin/yakety-cli"
+    echo "   App bundle: ./build-debug/bin/Yakety.app (macOS only)"
+else
+    echo "   CLI executable: ./build/bin/yakety-cli"
+    echo "   App bundle: ./build/bin/Yakety.app (macOS only)"
+fi
 
 # Package if requested
 if [ "$PACKAGE" = true ]; then
