@@ -19,7 +19,7 @@ typedef struct {
 	int count;                            // Number of keys in combination
 } KeyCombination;
 
-int keylogger_init(KeyCallback on_press, KeyCallback on_release, void *userdata);
+int keylogger_init(KeyCallback on_press, KeyCallback on_release, KeyCallback on_key_cancel, void *userdata);
 void keylogger_cleanup(void);
 
 // Pause/resume keylogger reporting
