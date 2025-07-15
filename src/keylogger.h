@@ -7,6 +7,13 @@
 
 typedef void (*KeyCallback)(void *userdata);
 
+// Keylogger state enum
+typedef enum {
+	KEYLOGGER_STATE_IDLE,                 // No keys pressed, ready to detect combo
+	KEYLOGGER_STATE_COMBO_ACTIVE,         // Combo keys pressed, recording active
+	KEYLOGGER_STATE_WAITING_FOR_ALL_RELEASED // After release/cancel, wait for all keys up
+} KeyloggerState;
+
 // Unified key info structure for both platforms
 typedef struct {
 	uint32_t code; // keycode on macOS, scancode on Windows

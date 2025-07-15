@@ -15,7 +15,7 @@ Implement additional key cancellation functionality with precise key state track
 ## Implementation Plan
 1. **Add cancellation callback and state tracking to keylogger interface**
    - [x] Add `on_key_cancel` callback parameter to `keylogger_init()` in `src/keylogger.h`
-   - [ ] Add state enum to track: IDLE, COMBO_ACTIVE, WAITING_FOR_ALL_RELEASED
+   - [x] Add state enum to track: IDLE, COMBO_ACTIVE, WAITING_FOR_ALL_RELEASED
    - [ ] Update platform-specific keylogger implementations to support cancellation callback
 
 2. **Implement precise key state tracking in macOS keylogger**
