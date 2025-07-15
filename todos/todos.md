@@ -1,2 +1,1 @@
-- If the user pressed key combination but then also pressed additional keys, we should hide recording overlay, and ignore this recording. Ideally we can stop the recording too.
 - Whisper V3 Turbo model will output "Thank You" if there was silence.

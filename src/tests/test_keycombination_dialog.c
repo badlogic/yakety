@@ -13,7 +13,7 @@ void test_ready(void) {
     printf("About to show dialog...\n");
     
     // Initialize keylogger singleton with dummy callbacks
-    if (keylogger_init(dummy_press, dummy_release, NULL) != 0) {
+    if (keylogger_init(dummy_press, dummy_release, NULL, NULL) != 0) {
         printf("Failed to initialize keylogger\n");
         app_cleanup();
         exit(1);

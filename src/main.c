@@ -35,6 +35,7 @@ static AppState *g_state = NULL;
 // Forward declarations
 static void on_key_press(void *userdata);
 static void on_key_release(void *userdata);
+static void on_key_cancel(void *userdata);
 
 static void signal_handler(int sig) {
     (void) sig;
@@ -126,7 +127,7 @@ static bool handle_keylogger_permissions(void) {
 // Setup keylogger with permission handling
 static bool setup_keylogger(void) {
     while (true) {
-        if (keylogger_init(on_key_press, on_key_release, g_state) == 0) {
+        if (keylogger_init(on_key_press, on_key_release, on_key_cancel, g_state) == 0) {
             log_info("✅ Keylogger started successfully");
 
             // Load saved hotkey from preferences
@@ -254,6 +255,21 @@ static void on_key_release(void *userdata) {
 
         // Process the recorded audio
         process_recorded_audio(duration);
+    }
+}
+
+static void on_key_cancel(void *userdata) {
+    AppState *state = (AppState *) userdata;
+
+    if (state->recording) {
+        state->recording = false;
+        log_info("❌ Recording cancelled - additional key pressed");
+        
+        // Stop recording and clean up
+        audio_recorder_stop();
+        overlay_hide();
+        
+        // No transcription or text insertion
     }
 }
 
