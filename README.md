@@ -6,18 +6,21 @@ Cross-platform speech-to-text application for instant voice transcription throug
 
 ```bash
 # Build and run
-cmake --preset release && cmake --build --preset release
+./build.sh
 ./build/bin/yakety-cli
 
-# Or build GUI app bundle
-cmake --build build --target yakety-app
+# Build debug version
+./build.sh debug
+
+# Build release version
+./build.sh release
 ```
 
 ## Core Files
 
 - **Entry Point**: `src/main.c` - Application lifecycle and transcription workflow
 - **Platform Layer**: `src/mac/`, `src/windows/` - OS-specific implementations
-- **Build Config**: `CMakeLists.txt` - CMake with whisper.cpp integration
+- **Build Config**: `build.sh` - Build script with whisper.cpp integration
 - **Audio**: `src/audio.c` - MiniAudio-based recording (16kHz mono)
 - **Transcription**: `src/transcription.cpp` - Whisper.cpp integration
 - **Models**: `src/models.c` - Model loading with fallback system
@@ -26,13 +29,12 @@ cmake --build build --target yakety-app
 
 - **macOS**: 14.0+, Apple Silicon, accessibility permissions
 - **Windows**: Visual Studio or Ninja, optional Vulkan SDK
-- **Dependencies**: CMake 3.20+, whisper.cpp (auto-downloaded)
+- **Dependencies**: whisper.cpp (auto-downloaded)
 
 ## Distribution
 
 ```bash
-cmake --build build --target package     # Platform packages
-cmake --build build --target upload      # Upload to server, includes packaging
+# Package for distribution
+./build.sh release
+# Outputs in build/bin/: CLI tools, app bundles with embedded Whisper models
 ```
-
-Outputs: CLI tools, app bundles (DMG/ZIP), all with embedded Whisper models and resources.

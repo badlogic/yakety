@@ -84,11 +84,20 @@ endfunction()
 
 function(setup_code_signing target)
     if(APPLE)
-        # Add custom command to sign the app bundle
-        add_custom_command(TARGET ${target} POST_BUILD
-            COMMAND codesign --force --deep --sign - "$<TARGET_BUNDLE_DIR:${target}>"
-            COMMAND xattr -cr "$<TARGET_BUNDLE_DIR:${target}>"
-            COMMENT "Signing ${target} with ad-hoc signature"
-        )
+        # Only sign with ad-hoc signature if not building for distribution
+        # Distribution builds will be properly signed and notarized by build.sh
+        if(NOT SKIP_ADHOC_SIGNING)
+            add_custom_command(TARGET ${target} POST_BUILD
+                COMMAND codesign --force --deep --sign - "$<TARGET_BUNDLE_DIR:${target}>"
+                COMMAND xattr -cr "$<TARGET_BUNDLE_DIR:${target}>"
+                COMMENT "Signing ${target} with ad-hoc signature"
+            )
+        else()
+            # Just remove quarantine attribute without re-signing
+            add_custom_command(TARGET ${target} POST_BUILD
+                COMMAND xattr -cr "$<TARGET_BUNDLE_DIR:${target}>"
+                COMMENT "Removing quarantine from ${target}"
+            )
+        endif()
     endif()
 endfunction()
