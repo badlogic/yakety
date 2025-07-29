@@ -163,11 +163,6 @@ static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEve
     (void) proxy;
     (void) refcon;
 
-    static int callback_count = 0;
-    if (callback_count++ < 10) {  // Only log first 10 to avoid spam
-        log_info("Event callback called - type: %d", type);
-    }
-
     if (type == kCGEventTapDisabledByTimeout || type == kCGEventTapDisabledByUserInput) {
         log_error("Event tap was disabled! Re-enabling...");
         // Re-enable the event tap
@@ -182,18 +177,9 @@ static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEve
     if (type == kCGEventKeyDown || type == kCGEventKeyUp) {
         CGKeyCode keyCode = (CGKeyCode) CGEventGetIntegerValueField(event, kCGKeyboardEventKeycode);
         CGEventFlags flags = CGEventGetFlags(event);
-
-        // Debug: Log key events
-        log_info("Key %s - keyCode: %d, flags: 0x%llx",
-                 type == kCGEventKeyDown ? "DOWN" : "UP",
-                 keyCode, (unsigned long long)flags);
-
         update_key_state(type, keyCode, flags);
     } else if (type == kCGEventFlagsChanged) {
         CGEventFlags flags = CGEventGetFlags(event);
-        log_info("Flags changed - flags: 0x%llx (prev: 0x%llx)",
-                 (unsigned long long)flags, (unsigned long long)g_previous_flags);
-
         // Only update FN key state on pure flag changes (not accompanying a key press)
         // This distinguishes actual FN key from arrow keys that also set the FN flag
         bool fn_was_pressed = (g_previous_flags & kCGEventFlagMaskSecondaryFn) != 0;
@@ -201,10 +187,8 @@ static CGEventRef CGEventCallback(CGEventTapProxy proxy, CGEventType type, CGEve
 
         if (fn_is_pressed && !fn_was_pressed) {
             add_pressed_key(KEYCODE_FN);
-            log_info("FN key pressed");
         } else if (!fn_is_pressed && fn_was_pressed) {
             remove_pressed_key(KEYCODE_FN);
-            log_info("FN key released");
         }
 
         // Update other modifiers

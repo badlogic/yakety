@@ -1,3 +1,2 @@
 - sometimes when i press the keycombo, recording starts and transcriptions and pasting happens, but i never see the overalay. the logs do say this:
 - sometimes the hole system input freezes up, yakety still receives keyboard input, but nothing else is. until the keylogger tap is disabled by the system, and ree-nabled by yakety.
-- research if we can use IOKit instead of event taps to do the key logging and coul dlive with only the input monitoring permission instead of the full accessibility permission. we currently rely on the accesiblity permission along + event tap.
