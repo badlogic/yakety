@@ -37,7 +37,7 @@ for arg in "$@"; do
 done
 
 # Clean if requested
-if [ "$CLEAN" = true ]; then
+if [ "$CLEAN" = true ] || [ "$PACKAGE" = true ] || [ "$UPLOAD" = true ]; then
     echo "Cleaning previous build..."
     rm -rf build build-debug whisper.cpp/build
 fi
@@ -59,10 +59,23 @@ fi
 # Always sign with Developer ID for consistent permissions
 echo "Signing with Developer ID..."
 PROJECT_DIR="$(pwd)"
-codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp "$BUILD_DIR/bin/yakety-cli" 2>/dev/null || true
+
+# Sign CLI
+echo "Signing yakety-cli..."
+codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp "$BUILD_DIR/bin/yakety-cli"
+
 if [ -d "$BUILD_DIR/bin/Yakety.app" ]; then
-    # Sign with entitlements for microphone permission
-    codesign --force --deep --sign "$DISTRIBUTION_CERT" --options runtime --timestamp --entitlements "$PROJECT_DIR/src/mac/yakety.entitlements" "$BUILD_DIR/bin/Yakety.app" 2>/dev/null || true
+    # First sign all frameworks and nested binaries
+    echo "Signing frameworks and binaries in Yakety.app..."
+    find "$BUILD_DIR/bin/Yakety.app" -type f -perm +111 -exec codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp {} \;
+    
+    # Then sign the app bundle with entitlements
+    echo "Signing Yakety.app bundle..."
+    codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp --entitlements "$PROJECT_DIR/src/mac/yakety.entitlements" "$BUILD_DIR/bin/Yakety.app"
+    
+    # Verify the signature
+    echo "Verifying signature..."
+    codesign --verify --deep --strict "$BUILD_DIR/bin/Yakety.app"
 fi
 
 # Notarize if package/upload requested
@@ -77,19 +90,29 @@ if [ "$PACKAGE" = true ] || [ "$UPLOAD" = true ]; then
     zip -r ../../yakety-notarize.zip yakety-cli Yakety.app
     cd ../..
 
-    SUBMISSION_ID=$(xcrun notarytool submit yakety-notarize.zip \
+    # Submit for notarization and capture output
+    NOTARY_OUTPUT=$(xcrun notarytool submit yakety-notarize.zip \
         --apple-id "$APPLE_ID" \
         --team-id "$TEAM_ID" \
         --password "$NOTARY_TOOL_PASSWORD" \
-        --wait 2>&1 | tee /dev/tty | grep -E "^\s*id:" | head -1 | awk '{print $2}')
-
-    # Get detailed log if submission failed
-    if [ $? -ne 0 ] && [ -n "$SUBMISSION_ID" ]; then
-        echo "Getting notarization log for $SUBMISSION_ID..."
+        --wait 2>&1)
+    
+    echo "$NOTARY_OUTPUT"
+    
+    # Extract submission ID and status
+    SUBMISSION_ID=$(echo "$NOTARY_OUTPUT" | grep -E "^\s*id:" | head -1 | awk '{print $2}')
+    STATUS=$(echo "$NOTARY_OUTPUT" | grep -E "^\s*status:" | tail -1 | awk '{print $2}')
+    
+    # If status is Invalid, get the log
+    if [ "$STATUS" = "Invalid" ] && [ -n "$SUBMISSION_ID" ]; then
+        echo ""
+        echo "❌ Notarization failed! Getting detailed log..."
+        echo ""
         xcrun notarytool log "$SUBMISSION_ID" \
             --apple-id "$APPLE_ID" \
             --team-id "$TEAM_ID" \
             --password "$NOTARY_TOOL_PASSWORD"
+        exit 1
     fi
 
     if [ -d "$BUILD_DIR/bin/Yakety.app" ]; then
@@ -110,6 +133,12 @@ if [ "$UPLOAD" = true ]; then
     [ "$PACKAGE" = false ] && cmake --build "$BUILD_DIR" --target package
     echo "Uploading..."
     cmake --build "$BUILD_DIR" --target upload
+
+    # Output download links
+    echo ""
+    echo "📥 Download links:"
+    echo "https://mariozechner.at/uploads/yakety-cli-macos.zip"
+    echo "https://mariozechner.at/uploads/Yakety-macos.dmg"
 fi
 
 # Run if requested - pick newest executable

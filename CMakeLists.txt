@@ -442,14 +442,10 @@ if(APPLE)
             -format UDZO
             ${CMAKE_BINARY_DIR}/Yakety-macos.dmg
 
-        # Create ZIP of the DMG for additional compression
-        COMMAND ${CMAKE_COMMAND} -E tar c ${CMAKE_BINARY_DIR}/Yakety-macos.zip --format=zip
-            ${CMAKE_BINARY_DIR}/Yakety-macos.dmg
-
         # Clean up temp directory
         COMMAND ${CMAKE_COMMAND} -E remove_directory ${CMAKE_BINARY_DIR}/dmg_temp
 
-        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created Yakety-macos.dmg and Yakety-macos.zip"
+        COMMAND ${CMAKE_COMMAND} -E echo "✅ Created Yakety-macos.dmg"
         COMMENT "Creating Yakety app distribution for macOS..."
         VERBATIM
     )
@@ -535,7 +531,7 @@ if(WIN32)
 else()
     add_custom_target(upload
         DEPENDS package
-        COMMAND sh -c "rsync -avz --progress ${CMAKE_BINARY_DIR}/*.zip badlogic@slayer.marioslab.io:/home/badlogic/mariozechner.at/html/uploads/"
+        COMMAND sh -c "rsync -avz --progress ${CMAKE_BINARY_DIR}/*.zip ${CMAKE_BINARY_DIR}/*.dmg badlogic@slayer.marioslab.io:/home/badlogic/mariozechner.at/html/uploads/"
         COMMAND ${CMAKE_COMMAND} -E echo "✅ Uploaded distribution packages to server"
         COMMENT "Uploading distribution packages to server using rsync..."
         VERBATIM
