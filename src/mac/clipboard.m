@@ -34,8 +34,5 @@ void clipboard_paste(void) {
         CFRelease(vUp);
         CFRelease(cmdUp);
         CFRelease(source);
-
-        // Give a small delay for the paste to complete
-        [NSThread sleepForTimeInterval:0.1];
     }
 }
