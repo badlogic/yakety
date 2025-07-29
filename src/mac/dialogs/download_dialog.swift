@@ -2,6 +2,35 @@ import SwiftUI
 import AppKit
 import Foundation
 
+// MARK: - C Logging Functions
+@_silgen_name("log_info")
+func c_log_info(_ format: UnsafePointer<CChar>, _ args: CVarArg...)
+
+@_silgen_name("log_error")
+func c_log_error(_ format: UnsafePointer<CChar>, _ args: CVarArg...)
+
+@_silgen_name("log_debug")
+func c_log_debug(_ format: UnsafePointer<CChar>, _ args: CVarArg...)
+
+// Swift logging wrappers
+func logInfo(_ message: String) {
+    message.withCString { cString in
+        c_log_info("%s", cString)
+    }
+}
+
+func logError(_ message: String) {
+    message.withCString { cString in
+        c_log_error("%s", cString)
+    }
+}
+
+func logDebug(_ message: String) {
+    message.withCString { cString in
+        c_log_debug("%s", cString)
+    }
+}
+
 // MARK: - Download Dialog
 struct DownloadDialogView: View {
     @ObservedObject var state: DownloadDialogState
@@ -64,11 +93,21 @@ struct DownloadDialogView: View {
     }
     
     private func startDownload() {
+        logInfo("Starting download for model: \(modelName)")
+        logInfo("Download URL: \(downloadUrl)")
+        logInfo("Destination path: \(filePath)")
+        
         // Create the directory if it doesn't exist
         let directory = (filePath as NSString).deletingLastPathComponent
-        try? FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true, attributes: nil)
+        do {
+            try FileManager.default.createDirectory(atPath: directory, withIntermediateDirectories: true, attributes: nil)
+            logInfo("Created directory: \(directory)")
+        } catch {
+            logError("Failed to create directory: \(error.localizedDescription)")
+        }
         
         guard let url = URL(string: downloadUrl) else {
+            logError("Invalid URL: \(downloadUrl)")
             state.downloadStatus = "Invalid URL"
             state.downloadResult = 2 // Error
             state.isCompleted = true
@@ -81,33 +120,59 @@ struct DownloadDialogView: View {
         let task = URLSession.shared.downloadTask(with: url) { tempURL, response, error in
             DispatchQueue.main.async {
                 if let error = error {
+                    logError("Download failed with error: \(error.localizedDescription)")
+                    logError("Error details: \(String(describing: error))")
                     state.downloadStatus = "Download failed: \(error.localizedDescription)"
                     state.downloadResult = 2 // Error
                     state.isCompleted = true
                     return
                 }
                 
+                // Log response details
+                if let httpResponse = response as? HTTPURLResponse {
+                    logInfo("HTTP response code: \(httpResponse.statusCode)")
+                    logInfo("Content-Length: \(httpResponse.expectedContentLength)")
+                }
+                
                 guard let tempURL = tempURL else {
+                    logError("Download failed: No temporary URL received")
                     state.downloadStatus = "Download failed: No data received"
                     state.downloadResult = 2 // Error
                     state.isCompleted = true
                     return
                 }
                 
+                logInfo("Download completed to temporary location: \(tempURL.path)")
+                
                 do {
+                    // Check file size at temp location
+                    let tempAttributes = try FileManager.default.attributesOfItem(atPath: tempURL.path)
+                    let fileSize = tempAttributes[.size] as? Int64 ?? 0
+                    logInfo("Downloaded file size: \(fileSize) bytes")
+                    
                     // Remove existing file if it exists
                     if FileManager.default.fileExists(atPath: filePath) {
+                        logInfo("Removing existing file at: \(filePath)")
                         try FileManager.default.removeItem(at: destinationURL)
                     }
                     
                     // Move downloaded file to final location
+                    logInfo("Moving file from \(tempURL.path) to \(destinationURL.path)")
                     try FileManager.default.moveItem(at: tempURL, to: destinationURL)
+                    
+                    // Verify file at final location
+                    let finalAttributes = try FileManager.default.attributesOfItem(atPath: destinationURL.path)
+                    let finalSize = finalAttributes[.size] as? Int64 ?? 0
+                    logInfo("Final file size: \(finalSize) bytes")
                     
                     state.downloadStatus = "Download complete"
                     state.downloadProgress = 1.0
                     state.downloadResult = 0 // Success
                     state.isCompleted = true
+                    logInfo("Download completed successfully")
                 } catch {
+                    logError("Failed to save file: \(error.localizedDescription)")
+                    logError("Error details: \(String(describing: error))")
                     state.downloadStatus = "Failed to save file: \(error.localizedDescription)"
                     state.downloadResult = 2 // Error
                     state.isCompleted = true
@@ -121,10 +186,16 @@ struct DownloadDialogView: View {
                 state.downloadProgress = progress.fractionCompleted
                 let percentage = Int(progress.fractionCompleted * 100)
                 state.downloadStatus = "Downloaded \(percentage)%"
+                
+                // Log progress milestones
+                if percentage == 25 || percentage == 50 || percentage == 75 || percentage == 100 {
+                    logInfo("Download progress: \(percentage)%")
+                }
             }
         }
         
         // Start the download
+        logInfo("Starting download task...")
         task.resume()
         
         // Keep the observation alive

@@ -100,7 +100,8 @@ target_include_directories(platform PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/src)
 if(APPLE)
     # Force override of default Swift debug flags to remove -incremental
     set(CMAKE_Swift_FLAGS_DEBUG "-Onone -g -disable-incremental-imports" CACHE STRING "Swift Debug flags" FORCE)
-    set(CMAKE_Swift_FLAGS_RELEASE "${CMAKE_Swift_FLAGS_RELEASE} -disable-incremental-imports" CACHE STRING "Swift Release flags" FORCE)
+    # Use -O instead of -Osize for better C interop stability
+    set(CMAKE_Swift_FLAGS_RELEASE "-O -disable-incremental-imports" CACHE STRING "Swift Release flags" FORCE)
 endif()
 
 # Add Swift generated header include path for Xcode builds

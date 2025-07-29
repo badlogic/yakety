@@ -208,7 +208,8 @@ struct ModelsDialogView: View {
         // Downloadable models
         let downloadableModels = [
             (name: "Whisper Tiny Q8", desc: "Ultra-lightweight model for basic transcription", size: "40 MB", filename: "ggml-tiny-q8_0.bin", url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-tiny-q8_0.bin"),
-            (name: "Whisper Large-v3 Turbo Q8", desc: "Premium model delivering the highest accuracy", size: "800 MB", filename: "ggml-large-v3-turbo-q8_0.bin", url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin")
+            (name: "Whisper Large-v3 Turbo Q8", desc: "Premium model delivering the highest accuracy", size: "800 MB", filename: "ggml-large-v3-turbo-q8_0.bin", url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q8_0.bin"),
+            (name: "Whisper Large-v3 Turbo Q5", desc: "Faster premium model with slightly reduced accuracy", size: "550 MB", filename: "ggml-large-v3-turbo-q5_0.bin", url: "https://huggingface.co/ggerganov/whisper.cpp/resolve/main/ggml-large-v3-turbo-q5_0.bin")
         ]
         
         for model in downloadableModels {

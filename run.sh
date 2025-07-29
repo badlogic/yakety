@@ -12,23 +12,26 @@ CLEAN=false
 PACKAGE=false
 UPLOAD=false
 DEBUG=false
-RUN=false
+CLI=false
+APP=false
 NOTARIZE=false
 
 for arg in "$@"; do
     case $arg in
         clean)    CLEAN=true ;;
         debug)    DEBUG=true ;;
-        run)      RUN=true ;;
+        cli)  CLI=true ;;
+        app)  APP=true ;;
         package)  PACKAGE=true ;;
         upload)   UPLOAD=true ;;
         *)
-            echo "Usage: $0 [clean] [debug] [package] [upload] [run]"
+            echo "Usage: $0 [clean] [debug] [package] [upload] [cli] [app]"
             echo ""
             echo "Options:"
             echo "  clean    - Clean previous build directories"
             echo "  debug    - Build with debug preset"
-            echo "  run      - Run the executable after building"
+            echo "  cli      - Run yakety-cli after building"
+            echo "  app      - Run Yakety.app and tail logs after building"
             echo "  package  - Create distribution packages (triggers notarization)"
             echo "  upload   - Upload packages to server (triggers notarization)"
             exit 1
@@ -141,29 +144,30 @@ if [ "$UPLOAD" = true ]; then
     echo "https://mariozechner.at/uploads/Yakety-macos.dmg"
 fi
 
-# Run if requested - pick newest executable
-if [ "$RUN" = true ]; then
-    CLI_RELEASE="build/bin/yakety-cli"
-    CLI_DEBUG="build-debug/bin/yakety-cli"
-
-    # Find which exists and is newer
-    if [ -f "$CLI_RELEASE" ] && [ -f "$CLI_DEBUG" ]; then
-        if [ "$CLI_RELEASE" -nt "$CLI_DEBUG" ]; then
-            EXEC="$CLI_RELEASE"
-        else
-            EXEC="$CLI_DEBUG"
-        fi
-    elif [ -f "$CLI_RELEASE" ]; then
-        EXEC="$CLI_RELEASE"
-    elif [ -f "$CLI_DEBUG" ]; then
-        EXEC="$CLI_DEBUG"
-    else
-        echo "❌ No executable found"
+# Run CLI if requested
+if [ "$CLI" = true ]; then
+    EXEC="$BUILD_DIR/bin/yakety-cli"
+    if [ ! -f "$EXEC" ]; then
+        echo "❌ No CLI executable found at $EXEC"
         exit 1
     fi
-
-    echo "Running $EXEC..."
+    
+    echo "Running yakety-cli..."
     "$EXEC"
+fi
+
+# Run app if requested
+if [ "$APP" = true ]; then
+    APP="$BUILD_DIR/bin/Yakety.app"
+    if [ ! -d "$APP" ]; then
+        echo "❌ No app bundle found at $APP"
+        exit 1
+    fi
+    
+    echo "Running Yakety.app..."
+    open "$APP"
+    echo "Tailing logs..."
+    tail -f ~/.yakety/log.txt
 fi
 
 echo "✅ Done"
