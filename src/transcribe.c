@@ -163,6 +163,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
+    transcription_set_language("auto");
+
     double model_load_time = utils_now() - model_load_start;
     printf("Model loaded in %.2f ms\n", model_load_time * 1000.0);
 

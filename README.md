@@ -20,7 +20,7 @@ Cross-platform speech-to-text application for instant voice transcription throug
 
 - **Entry Point**: `src/main.c` - Application lifecycle and transcription workflow
 - **Platform Layer**: `src/mac/`, `src/windows/` - OS-specific implementations
-- **Build Config**: `build.sh` - Build script with whisper.cpp integration
+- **Build Config**: `run.sh` - Build script with whisper.cpp integration
 - **Audio**: `src/audio.c` - MiniAudio-based recording (16kHz mono)
 - **Transcription**: `src/transcription.cpp` - Whisper.cpp integration
 - **Models**: `src/models.c` - Model loading with fallback system
@@ -95,6 +95,6 @@ When debugging permission issues:
 
 ```bash
 # Package for distribution
-./build.sh release
+./run.sh release
 # Outputs in build/bin/: CLI tools, app bundles with embedded Whisper models
 ```
