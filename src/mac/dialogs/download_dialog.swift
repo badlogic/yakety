@@ -1,6 +1,7 @@
 import SwiftUI
 import AppKit
 import Foundation
+import os.log
 
 // MARK: - C Logging Functions
 @_silgen_name("log_info")
@@ -12,25 +13,20 @@ func c_log_error(_ format: UnsafePointer<CChar>, _ args: CVarArg...)
 @_silgen_name("log_debug")
 func c_log_debug(_ format: UnsafePointer<CChar>, _ args: CVarArg...)
 
-// Swift logging wrappers
+// Swift logging wrappers - use os_log for safety
+let log = OSLog(subsystem: "com.yakety.app", category: "Download")
+
 func logInfo(_ message: String) {
-    message.withCString { cString in
-        c_log_info("%s", cString)
-    }
+    os_log("%{public}@", log: log, type: .info, message)
 }
 
 func logError(_ message: String) {
-    message.withCString { cString in
-        c_log_error("%s", cString)
-    }
+    os_log("%{public}@", log: log, type: .error, message)
 }
 
 func logDebug(_ message: String) {
-    message.withCString { cString in
-        c_log_debug("%s", cString)
-    }
+    os_log("%{public}@", log: log, type: .debug, message)
 }
-
 // MARK: - Download Dialog
 struct DownloadDialogView: View {
     @ObservedObject var state: DownloadDialogState
