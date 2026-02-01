@@ -1,0 +1,24 @@
+{
+    "name": "Yakety Linux Build",
+    "build": {
+        "dockerfile": "Dockerfile"
+    },
+    "features": {
+        "ghcr.io/devcontainers/features/git:1": {}
+    },
+    "customizations": {
+        "vscode": {
+            "extensions": [
+                "ms-vscode.cpptools",
+                "ms-vscode.cmake-tools",
+                "twxs.cmake"
+            ],
+            "settings": {
+                "cmake.configureOnOpen": false,
+                "cmake.generator": "Ninja"
+            }
+        }
+    },
+    "postCreateCommand": "echo 'Run: cmake --preset release && cmake --build --preset release'",
+    "remoteUser": "vscode"
+}
