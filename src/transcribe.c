@@ -29,9 +29,13 @@ static int read_wav_file(const char *filename, WavFile *wav) {
     uint32_t file_size;
     char wave[4];
 
-    fread(riff, 1, 4, file);
-    fread(&file_size, 4, 1, file);
-    fread(wave, 1, 4, file);
+    if (fread(riff, 1, 4, file) != 4 ||
+        fread(&file_size, 4, 1, file) != 1 ||
+        fread(wave, 1, 4, file) != 4) {
+        log_error("ERROR: Failed to read WAV header\n");
+        fclose(file);
+        return -1;
+    }
 
     if (strncmp(riff, "RIFF", 4) != 0 || strncmp(wave, "WAVE", 4) != 0) {
         log_error("ERROR: Not a valid WAV file\n");
@@ -56,11 +60,19 @@ static int read_wav_file(const char *filename, WavFile *wav) {
             break;
 
         if (strncmp(chunk_id, "fmt ", 4) == 0) {
-            fread(&format_tag, 2, 1, file);
-            fread(&wav->channels, 2, 1, file);
-            fread(&wav->sample_rate, 4, 1, file);
+            if (fread(&format_tag, 2, 1, file) != 1 ||
+                fread(&wav->channels, 2, 1, file) != 1 ||
+                fread(&wav->sample_rate, 4, 1, file) != 1) {
+                log_error("ERROR: Failed to read fmt chunk\n");
+                fclose(file);
+                return -1;
+            }
             fseek(file, 6, SEEK_CUR); // skip byte_rate and block_align
-            fread(&wav->bits_per_sample, 2, 1, file);
+            if (fread(&wav->bits_per_sample, 2, 1, file) != 1) {
+                log_error("ERROR: Failed to read bits_per_sample\n");
+                fclose(file);
+                return -1;
+            }
             fseek(file, chunk_size - 16, SEEK_CUR); // skip rest of fmt chunk
         } else if (strncmp(chunk_id, "data", 4) == 0) {
             wav->data_size = chunk_size;
@@ -83,7 +95,12 @@ static int read_wav_file(const char *filename, WavFile *wav) {
                     float sample_sum = 0.0f;
                     for (int ch = 0; ch < wav->channels; ch++) {
                         float sample;
-                        fread(&sample, 4, 1, file);
+                        if (fread(&sample, 4, 1, file) != 1) {
+                            log_error("ERROR: Failed to read sample data\n");
+                            free(wav->samples);
+                            fclose(file);
+                            return -1;
+                        }
                         sample_sum += sample;
                     }
                     wav->samples[i] = sample_sum / wav->channels;
@@ -94,7 +111,12 @@ static int read_wav_file(const char *filename, WavFile *wav) {
                     float sample_sum = 0.0f;
                     for (int ch = 0; ch < wav->channels; ch++) {
                         int16_t sample;
-                        fread(&sample, 2, 1, file);
+                        if (fread(&sample, 2, 1, file) != 1) {
+                            log_error("ERROR: Failed to read sample data\n");
+                            free(wav->samples);
+                            fclose(file);
+                            return -1;
+                        }
                         sample_sum += (float) sample / 32768.0f;
                     }
                     wav->samples[i] = sample_sum / wav->channels;
