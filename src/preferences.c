@@ -192,6 +192,8 @@ bool preferences_init(void) {
     } else {
         // Create default config
         create_default_preferences();
+        // Must unlock before save to avoid deadlock- preferences_save() locks the mutex
+        utils_mutex_unlock(g_preferences_mutex);
         preferences_save();
         log_info("Created default config at: %s", g_config_path);
     }
