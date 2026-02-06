@@ -30,9 +30,9 @@ Cross-platform speech-to-text application for instant voice transcription throug
 ## Requirements
 
 - **macOS**: 14.0+, Apple Silicon, accessibility permissions
+- **Linux**: Cmake, Ninja, optional Glslc, optional Vulkan SDK
 - **Windows**: Visual Studio or Ninja, optional Vulkan SDK
 - **Dependencies**: whisper.cpp (auto-downloaded)
-- **Build Dependencies**: c++ compiler, cmake, ninja; Linux: glslc, vulkan; Windows: visual studio, vulkan
 
 ## macOS Permissions
 
