@@ -100,6 +100,8 @@ function(build_whisper_cpp)
         endif()
         
         # Configure
+        # Force-disable Vulkan backend to avoid heavy GPU compile in low-memory CI
+        list(APPEND WHISPER_CMAKE_ARGS -DGGML_VULKAN=OFF)
         execute_process(
             COMMAND ${CMAKE_COMMAND} -G "${WHISPER_GENERATOR}" ${WHISPER_CMAKE_ARGS} ..
             WORKING_DIRECTORY ${WHISPER_BUILD_DIR}
@@ -111,7 +113,7 @@ function(build_whisper_cpp)
         
         # Build
         execute_process(
-            COMMAND ${CMAKE_COMMAND} --build . --config Release --parallel
+            COMMAND ${CMAKE_COMMAND} --build . --config Release --parallel 1
             WORKING_DIRECTORY ${WHISPER_BUILD_DIR}
             RESULT_VARIABLE result
         )
