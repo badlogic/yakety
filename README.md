@@ -5,15 +5,17 @@ Cross-platform speech-to-text application for instant voice transcription throug
 ## Quick Start
 
 ```bash
-# Build and run
-./build.sh
-./build/bin/yakety-cli
+# Build release version
+./run.sh
+
+# Build and run CLI
+./run.sh cli
 
 # Build debug version
-./build.sh debug
+./run.sh debug
 
-# Build release version
-./build.sh release
+# Build and run GUI app
+./run.sh app
 ```
 
 ## Core Files
@@ -95,6 +97,6 @@ When debugging permission issues:
 
 ```bash
 # Package for distribution
-./run.sh release
+./run.sh package
 # Outputs in build/bin/: CLI tools, app bundles with embedded Whisper models
 ```
