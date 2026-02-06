@@ -4,6 +4,10 @@ Cross-platform speech-to-text application for instant voice transcription throug
 
 ## Quick Start
 
+Dependencies: cmake, ninja
+
+To build Linux devcontainer, run `./.devcontainer/build.sh`
+
 ```bash
 # Build release version
 ./run.sh
