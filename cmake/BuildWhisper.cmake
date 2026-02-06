@@ -118,8 +118,12 @@ function(build_whisper_cpp)
         endif()
         
         # Build
+        set(BUILD_COMMAND ${CMAKE_COMMAND} --build . --config Release --parallel)
+        if(DEFINED ENV{CMAKE_BUILD_PARALLEL_LEVEL})
+            list(APPEND BUILD_COMMAND $ENV{CMAKE_BUILD_PARALLEL_LEVEL})
+        endif()
         execute_process(
-            COMMAND ${CMAKE_COMMAND} --build . --config Release --parallel ${CMAKE_BUILD_PARALLEL_LEVEL}
+            COMMAND ${BUILD_COMMAND}
             WORKING_DIRECTORY ${WHISPER_BUILD_DIR}
             RESULT_VARIABLE result
         )

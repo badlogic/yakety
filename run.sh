@@ -52,7 +52,7 @@ BUILD_DIR=$([ "$DEBUG" = true ] && echo "build-debug" || echo "build")
 if [ "$DEBUG" = true ]; then
     echo "Building debug..."
     cmake --preset debug -DSKIP_ADHOC_SIGNING=ON
-    export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-1}
+    # Define CMAKE_BUILD_PARALLEL_LEVEL to add cmake --parallel arg
     cmake --build --preset debug
 else
     echo "Building release..."
