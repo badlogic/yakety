@@ -119,7 +119,7 @@ function(build_whisper_cpp)
         
         # Build
         execute_process(
-            COMMAND ${CMAKE_COMMAND} --build . --config Release --parallel 1
+            COMMAND ${CMAKE_COMMAND} --build . --config Release --parallel ${CMAKE_BUILD_PARALLEL_LEVEL}
             WORKING_DIRECTORY ${WHISPER_BUILD_DIR}
             RESULT_VARIABLE result
         )
