@@ -4,10 +4,6 @@ Cross-platform speech-to-text application for instant voice transcription throug
 
 ## Quick Start
 
-Dependencies: cmake, ninja
-
-To build Linux devcontainer, run `./.devcontainer/build.sh`
-
 ```bash
 # Build release version
 ./run.sh
@@ -36,6 +32,7 @@ To build Linux devcontainer, run `./.devcontainer/build.sh`
 - **macOS**: 14.0+, Apple Silicon, accessibility permissions
 - **Windows**: Visual Studio or Ninja, optional Vulkan SDK
 - **Dependencies**: whisper.cpp (auto-downloaded)
+- **Build Dependencies**: c++ compiler, cmake, ninja; Linux: glslc, vulkan; Windows: visual studio, vulkan
 
 ## macOS Permissions
 
@@ -96,6 +93,8 @@ When debugging permission issues:
 - Parent process detection helps identify inheritance issues
 - Use `./permissions.sh` to verify TCC database entries
 - Run from different terminal apps to test various scenarios
+- To build Linux devcontainer, run `./.devcontainer/build.sh`
+
 
 ## Distribution
 
