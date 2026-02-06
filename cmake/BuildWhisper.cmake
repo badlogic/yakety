@@ -100,8 +100,14 @@ function(build_whisper_cpp)
         endif()
         
         # Configure
-        # Force-disable Vulkan backend to avoid heavy GPU compile in low-memory CI
-        list(APPEND WHISPER_CMAKE_ARGS -DGGML_VULKAN=OFF)
+        # Lower optimization for whisper.cpp Release build to reduce compiler memory use
+        list(APPEND WHISPER_CMAKE_ARGS -DCMAKE_C_FLAGS_RELEASE="-O2" -DCMAKE_CXX_FLAGS_RELEASE="-O2")
+
+        # Allow disabling Vulkan backend via environment variable so users can control it
+        if(DEFINED ENV{WHISPER_DISABLE_VULKAN})
+            list(APPEND WHISPER_CMAKE_ARGS -DGGML_VULKAN=OFF)
+            message(STATUS "WHISPER_DISABLE_VULKAN set — disabling GGML Vulkan backend for whisper.cpp build")
+        endif()
         execute_process(
             COMMAND ${CMAKE_COMMAND} -G "${WHISPER_GENERATOR}" ${WHISPER_CMAKE_ARGS} ..
             WORKING_DIRECTORY ${WHISPER_BUILD_DIR}
