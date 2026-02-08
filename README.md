@@ -5,15 +5,17 @@ Cross-platform speech-to-text application for instant voice transcription throug
 ## Quick Start
 
 ```bash
-# Build and run
-./build.sh
-./build/bin/yakety-cli
+# Build release version
+./run.sh
+
+# Build and run CLI
+./run.sh cli
 
 # Build debug version
-./build.sh debug
+./run.sh debug
 
-# Build release version
-./build.sh release
+# Build and run GUI app
+./run.sh app
 ```
 
 ## Core Files
@@ -28,6 +30,7 @@ Cross-platform speech-to-text application for instant voice transcription throug
 ## Requirements
 
 - **macOS**: 14.0+, Apple Silicon, accessibility permissions
+- **Linux**: Cmake, Ninja, optional Glslc, optional Vulkan SDK
 - **Windows**: Visual Studio or Ninja, optional Vulkan SDK
 - **Dependencies**: whisper.cpp (auto-downloaded)
 
@@ -90,11 +93,13 @@ When debugging permission issues:
 - Parent process detection helps identify inheritance issues
 - Use `./permissions.sh` to verify TCC database entries
 - Run from different terminal apps to test various scenarios
+- To build Linux devcontainer, run `./.devcontainer/build.sh`
+
 
 ## Distribution
 
 ```bash
 # Package for distribution
-./run.sh release
+./run.sh package
 # Outputs in build/bin/: CLI tools, app bundles with embedded Whisper models
 ```
