@@ -1,9 +1,10 @@
 #!/bin/bash
 
 set -e
+[ "${DEBUG:-0}" = "1" ] && set -x
 
 # Signing configuration
-DISTRIBUTION_CERT="Developer ID Application: Mario Zechner (7F5Y92G2Z4)"
+DISTRIBUTION_CERT="${DISTRIBUTION_CERT-Developer ID Application: Mario Zechner (7F5Y92G2Z4)}"
 TEAM_ID="7F5Y92G2Z4"
 APPLE_ID="contact@badlogicgames.com"
 
@@ -59,26 +60,33 @@ else
     cmake --build --preset release
 fi
 
-# Always sign with Developer ID for consistent permissions
-echo "Signing with Developer ID..."
 PROJECT_DIR="$(pwd)"
 
-# Sign CLI
-echo "Signing yakety-cli..."
-codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp "$BUILD_DIR/bin/yakety-cli"
+# Sign only if `codesign` is available (macOS). Skip on Linux/CI.
+if command -v codesign >/dev/null 2>&1; then
+    echo "Signing with Developer ID..."
 
-if [ -d "$BUILD_DIR/bin/Yakety.app" ]; then
-    # First sign all frameworks and nested binaries
-    echo "Signing frameworks and binaries in Yakety.app..."
-    find "$BUILD_DIR/bin/Yakety.app" -type f -perm +111 -exec codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp {} \;
-    
-    # Then sign the app bundle with entitlements
-    echo "Signing Yakety.app bundle..."
-    codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp --entitlements "$PROJECT_DIR/src/mac/yakety.entitlements" "$BUILD_DIR/bin/Yakety.app"
-    
-    # Verify the signature
-    echo "Verifying signature..."
-    codesign --verify --deep --strict "$BUILD_DIR/bin/Yakety.app"
+    declare -a codesign_sign_args=(codesign --force)
+    [ -n "${DISTRIBUTION_CERT:-}" ] || DISTRIBUTION_CERT="-"
+    codesign_sign_args+=(--sign "$DISTRIBUTION_CERT")
+    codesign_sign_args+=(--options runtime --timestamp)
+
+    # Sign CLI
+    echo "Signing yakety-cli..."
+    "${codesign_sign_args[@]}" "$BUILD_DIR/bin/yakety-cli"
+
+    if [ -d "$BUILD_DIR/bin/Yakety.app" ]; then
+        echo "Signing frameworks and binaries in Yakety.app..."
+        find "$BUILD_DIR/bin/Yakety.app" -type f -perm +111 -exec "${codesign_sign_args[@]}" {} \;
+
+        echo "Signing Yakety.app bundle..."
+        "${codesign_sign_args[@]}" --entitlements "$PROJECT_DIR/src/mac/yakety.entitlements" "$BUILD_DIR/bin/Yakety.app"
+
+        echo "Verifying signature..."
+        codesign --verify --deep --strict "$BUILD_DIR/bin/Yakety.app"
+    fi
+else
+    echo "codesign not found — skipping signing steps on this platform"
 fi
 
 # Notarize if package/upload requested
