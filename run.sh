@@ -53,17 +53,10 @@ BUILD_DIR=$([ "$DEBUG" = true ] && echo "build-debug" || echo "build")
 if [ "$DEBUG" = true ]; then
     echo "Building debug..."
     cmake --preset debug -DSKIP_ADHOC_SIGNING=ON
-    # Define CMAKE_BUILD_PARALLEL_LEVEL to add cmake --parallel arg
     cmake --build --preset debug
 else
     echo "Building release..."
-    # If user set WHISPER_DISABLE_VULKAN in the environment, let them know
-    if [ -n "$WHISPER_DISABLE_VULKAN" ]; then
-        echo "WHISPER_DISABLE_VULKAN is set — whisper Vulkan backend will be disabled"
-    fi
-
     cmake --preset release -DSKIP_ADHOC_SIGNING=ON
-    export CMAKE_BUILD_PARALLEL_LEVEL=${CMAKE_BUILD_PARALLEL_LEVEL:-1}
     cmake --build --preset release
 fi
 
