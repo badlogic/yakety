@@ -109,13 +109,13 @@ function(setup_code_signing target)
         if(NOT SKIP_ADHOC_SIGNING)
             add_custom_command(TARGET ${target} POST_BUILD
                 COMMAND codesign --force --deep --sign - "$<TARGET_BUNDLE_DIR:${target}>"
-                COMMAND xattr -cr "$<TARGET_BUNDLE_DIR:${target}>"
+                COMMAND find "$<TARGET_BUNDLE_DIR:${target}>" -exec xattr -c {} \\\;
                 COMMENT "Signing ${target} with ad-hoc signature"
             )
         else()
             # Just remove quarantine attribute without re-signing
             add_custom_command(TARGET ${target} POST_BUILD
-                COMMAND xattr -cr "$<TARGET_BUNDLE_DIR:${target}>"
+                COMMAND find "$<TARGET_BUNDLE_DIR:${target}>" -exec xattr -c {} \\\;
                 COMMENT "Removing quarantine from ${target}"
             )
         endif()
