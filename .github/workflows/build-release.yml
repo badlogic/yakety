@@ -140,7 +140,7 @@ jobs:
           echo ""
           echo "=== Organizing files by platform ==="
           
-          # Process each artifact directory and rename files with platform suffix
+          # Process each artifact directory and organize by platform
           for artifact_dir in all-artifacts/yakety-*; do
             if [ -d "$artifact_dir" ]; then
               # Extract platform info from directory name
@@ -149,25 +149,18 @@ jobs:
               platform=$(echo "$dir_name" | cut -d'-' -f2)
               arch=$(echo "$dir_name" | cut -d'-' -f3)
               
+              # Create platform directory
+              platform_dir="release-assets/${platform}"
+              mkdir -p "$platform_dir"
+              
               echo "Processing $platform-$arch artifacts..."
               
-              # Copy and rename files with platform/arch suffix
+              # Copy files to platform directory
               for file in "$artifact_dir"/*; do
                 if [ -f "$file" ]; then
                   filename=$(basename "$file")
-                  # Add platform-arch before extension
-                  base="${filename%.*}"
-                  ext="${filename##*.}"
-                  
-                  # Handle files without extension
-                  if [ "$base" = "$filename" ]; then
-                    new_name="${filename}-${platform}-${arch}"
-                  else
-                    new_name="${base}-${platform}-${arch}.${ext}"
-                  fi
-                  
-                  cp "$file" "release-assets/$new_name"
-                  echo "  → $new_name"
+                  cp "$file" "$platform_dir/$filename"
+                  echo "  → $platform_dir/$filename"
                 fi
               done
               
@@ -175,16 +168,41 @@ jobs:
               for app_bundle in "$artifact_dir"/*.app; do
                 if [ -d "$app_bundle" ]; then
                   app_name=$(basename "$app_bundle")
-                  echo "  → Zipping macOS app bundle: $app_name"
-                  (cd "$artifact_dir" && zip -r -q "../../release-assets/${app_name%.app}-${platform}-${arch}.zip" "$app_name")
+                  echo "  → Copying macOS app bundle: $app_name"
+                  cp -r "$app_bundle" "$platform_dir/"
                 fi
               done
             fi
           done
           
           echo ""
-          echo "=== Release assets ==="
+          echo "=== Creating platform-specific zip files ==="
+          
+          # Create zip files for each platform directory
+          cd release-assets
+          for platform_dir in */; do
+            if [ -d "$platform_dir" ]; then
+              platform_name="${platform_dir%/}"
+              zip_name="${platform_name}.zip"
+              echo "Creating $zip_name..."
+              zip -r -q "$zip_name" "$platform_name"
+              echo "  ✅ Created $zip_name"
+            fi
+          done
+          cd ..
+          
+          echo ""
+          echo "=== Release assets structure ==="
           ls -lah release-assets/
+          echo ""
+          echo "=== Platform directories ==="
+          for dir in release-assets/*/; do
+            if [ -d "$dir" ]; then
+              echo "$(basename $dir):"
+              ls -lah "$dir"
+              echo ""
+            fi
+          done
 
       - name: Create GitHub Release
         uses: ncipollo/release-action@v1
@@ -196,12 +214,12 @@ jobs:
             ## Yakety Release ${{ github.event_name == 'workflow_dispatch' && inputs.tag || github.ref_name }}
             
             Cross-platform speech-to-text application built for:
-            - 🐧 Linux (x64)
-            - 🍎 macOS (ARM64/Apple Silicon)
-            - 🪟 Windows (x64)
+            - 🐧 Linux (x64) - Download `linux.zip`
+            - 🍎 macOS (ARM64/Apple Silicon) - Download `macos.zip`
+            - 🪟 Windows (x64) - Download `windows.zip`
             
             ### Installation
-            Download the appropriate binary for your platform from the assets below.
+            Download the appropriate zip file for your platform from the assets below and extract it.
             
             ### What's Changed
             See commit history for details.
