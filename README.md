@@ -18,6 +18,33 @@ Cross-platform speech-to-text application for instant voice transcription throug
 ./run.sh app
 ```
 
+## Setup
+
+Before building, install platform-specific dependencies using the provided setup scripts:
+
+### Linux
+```bash
+chmod +x setup-linux.sh
+./setup-linux.sh
+```
+
+### macOS
+```bash
+chmod +x setup-macos.sh
+./setup-macos.sh
+```
+
+### Windows (PowerShell, run as Administrator)
+```powershell
+Set-ExecutionPolicy -ExecutionPolicy RemoteSigned -Scope Process
+.\setup-windows.ps1
+```
+
+### Alternative: Use Dev Container (Linux)
+```bash
+./.devcontainer/build.sh
+```
+
 ## Core Files
 
 - **Entry Point**: `src/main.c` - Application lifecycle and transcription workflow
