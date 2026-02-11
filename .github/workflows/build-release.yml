@@ -198,7 +198,7 @@ jobs:
           echo "=== Platform directories ==="
           for dir in release-assets/*/; do
             if [ -d "$dir" ]; then
-              echo "$(basename $dir):"
+              echo "$(basename "$dir"):"
               ls -lah "$dir"
               echo ""
             fi
