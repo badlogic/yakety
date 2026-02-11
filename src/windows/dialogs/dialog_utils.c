@@ -1,5 +1,5 @@
 #include "dialog_utils.h"
-#include "../logging.h"
+#include "logging.h"
 #include <dwmapi.h>
 #include <shellscalingapi.h>
 #include <math.h>

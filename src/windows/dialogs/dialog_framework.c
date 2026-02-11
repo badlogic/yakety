@@ -1,6 +1,6 @@
 #include "dialog_framework.h"
-#include "../utils.h"
-#include "../logging.h"
+#include "utils.h"
+#include "logging.h"
 #include <dwmapi.h>
 #include <shellscalingapi.h>
 #include <stdlib.h>
