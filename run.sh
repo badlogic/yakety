@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 set -e
 [ "${DEBUG:-0}" = "1" ] && set -x
@@ -62,14 +62,19 @@ fi
 
 PROJECT_DIR="$(pwd)"
 
-# Sign only if `codesign` is available (macOS). Skip on Linux/CI.
+# Sign only if `codesign` is available (macOS).
 if command -v codesign >/dev/null 2>&1; then
-    echo "Signing with Developer ID..."
+    echo "Signing..."
 
     declare -a codesign_sign_args=(codesign --force)
     [ -n "${DISTRIBUTION_CERT:-}" ] || DISTRIBUTION_CERT="-"
     codesign_sign_args+=(--sign "$DISTRIBUTION_CERT")
-    codesign_sign_args+=(--options runtime --timestamp)
+
+    # Only use hardened runtime + timestamp with a real Developer ID certificate.
+    # Ad-hoc signing ("-") has no keychain identity, so --timestamp would fail.
+    if [ ! "$DISTRIBUTION_CERT" = "-" ]; then
+        codesign_sign_args+=(--options runtime --timestamp)
+    fi
 
     # Sign CLI
     echo "Signing yakety-cli..."
