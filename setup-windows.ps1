@@ -20,10 +20,13 @@ if (-not $isAdmin) {
 
 # Check if Chocolatey is installed
 if (-not (Test-Path -Path "$env:ProgramData\chocolatey\bin\choco.exe")) {
-    Write-Host "ERROR: Chocolatey is not installed!" -ForegroundColor Red
-    Write-Host "Please install Chocolatey first:" -ForegroundColor Yellow
-    Write-Host "  https://chocolatey.org/install" -ForegroundColor Cyan
-    exit 1
+    if (-not $SkipChocolateyCheck) {
+        Write-Host "WARNING: Chocolatey is not installed!" -ForegroundColor Yellow
+        Write-Host "Chocolatey should have been installed by the workflow." -ForegroundColor Yellow
+        Write-Host "If running locally, please install Chocolatey first:" -ForegroundColor Yellow
+        Write-Host "  https://chocolatey.org/install" -ForegroundColor Cyan
+        exit 1
+    }
 }
 
 Write-Host "Installing build tools and CMake..." -ForegroundColor Cyan

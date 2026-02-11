@@ -23,6 +23,7 @@ $SUDO add-apt-repository universe
 $SUDO apt-get update
 
 $SUDO apt-get install -y --no-install-recommends \
+    cmake \
     ninja-build \
     pkg-config \
     libasound2-dev \
@@ -36,4 +37,11 @@ $SUDO apt-get install -y --no-install-recommends \
     wget \
     xclip \
     xdotool \
-    zenity \
+    zenity
+
+echo ""
+echo "✅ Linux dependencies installed successfully!"
+echo ""
+echo "You can now build Yakety with:"
+echo "  ./run.sh                    # Build release"
+echo "  ./run.sh debug              # Build debug"
