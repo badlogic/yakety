@@ -5,31 +5,42 @@ Cross-platform speech-to-text application for instant voice transcription throug
 ## Quick Start
 
 ```bash
-# Build and run
-./build.sh
-./build/bin/yakety-cli
+# Build and run CLI
+./run.sh cli
 
-# Build debug version
-./build.sh debug
+# Build and run app
+./run.sh app
 
-# Build release version
-./build.sh release
+# Build debug version and run CLI
+./run.sh debug cli
 ```
 
 ## Core Files
 
 - **Entry Point**: `src/main.c` - Application lifecycle and transcription workflow
 - **Platform Layer**: `src/mac/`, `src/windows/` - OS-specific implementations
-- **Build Config**: `run.sh` - Build script with whisper.cpp integration
+- **Build Config**: `run.sh` - Build, sign, notarize, package, and upload script
 - **Audio**: `src/audio.c` - MiniAudio-based recording (16kHz mono)
 - **Transcription**: `src/transcription.cpp` - Whisper.cpp integration
 - **Models**: `src/models.c` - Model loading with fallback system
 
 ## Requirements
 
-- **macOS**: 14.0+, Apple Silicon, accessibility permissions
-- **Windows**: Visual Studio or Ninja, optional Vulkan SDK
-- **Dependencies**: whisper.cpp (auto-downloaded)
+### macOS
+
+- Apple Silicon (arm64), macOS 14.0+
+- Xcode Command Line Tools: `xcode-select --install`
+- [Homebrew](https://brew.sh), then: `brew install cmake ninja`
+- Accessibility, Input Monitoring, and Microphone permissions (see below)
+
+### Windows
+
+- Visual Studio or Ninja
+- Optional: Vulkan SDK for GPU acceleration
+
+### Auto-downloaded
+
+- whisper.cpp and Whisper model (fetched during first build)
 
 ## macOS Permissions
 
@@ -94,7 +105,9 @@ When debugging permission issues:
 ## Distribution
 
 ```bash
-# Package for distribution
-./run.sh release
-# Outputs in build/bin/: CLI tools, app bundles with embedded Whisper models
+# Build, sign, notarize, and create packages (requires Apple Developer ID and NOTARY_TOOL_PASSWORD)
+./run.sh package
+
+# Build, sign, notarize, package, and upload
+./run.sh upload
 ```
