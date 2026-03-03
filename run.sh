@@ -59,26 +59,30 @@ else
     cmake --build --preset release
 fi
 
-# Always sign with Developer ID for consistent permissions
-echo "Signing with Developer ID..."
-PROJECT_DIR="$(pwd)"
+# Always sign with Developer ID for consistent permissions (macOS only)
+if [ "$(uname -s)" = "Darwin" ]; then
+    echo "Signing with Developer ID..."
+    PROJECT_DIR="$(pwd)"
 
-# Sign CLI
-echo "Signing yakety-cli..."
-codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp "$BUILD_DIR/bin/yakety-cli"
+    # Sign CLI
+    echo "Signing yakety-cli..."
+    codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp "$BUILD_DIR/bin/yakety-cli"
 
-if [ -d "$BUILD_DIR/bin/Yakety.app" ]; then
-    # First sign all frameworks and nested binaries
-    echo "Signing frameworks and binaries in Yakety.app..."
-    find "$BUILD_DIR/bin/Yakety.app" -type f -perm +111 -exec codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp {} \;
-    
-    # Then sign the app bundle with entitlements
-    echo "Signing Yakety.app bundle..."
-    codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp --entitlements "$PROJECT_DIR/src/mac/yakety.entitlements" "$BUILD_DIR/bin/Yakety.app"
-    
-    # Verify the signature
-    echo "Verifying signature..."
-    codesign --verify --deep --strict "$BUILD_DIR/bin/Yakety.app"
+    if [ -d "$BUILD_DIR/bin/Yakety.app" ]; then
+        # First sign all frameworks and nested binaries
+        echo "Signing frameworks and binaries in Yakety.app..."
+        find "$BUILD_DIR/bin/Yakety.app" -type f -perm +111 -exec codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp {} \;
+        
+        # Then sign the app bundle with entitlements
+        echo "Signing Yakety.app bundle..."
+        codesign --force --sign "$DISTRIBUTION_CERT" --options runtime --timestamp --entitlements "$PROJECT_DIR/src/mac/yakety.entitlements" "$BUILD_DIR/bin/Yakety.app"
+        
+        # Verify the signature
+        echo "Verifying signature..."
+        codesign --verify --deep --strict "$BUILD_DIR/bin/Yakety.app"
+    fi
+else
+    echo "Skipping code signing (not on macOS)..."
 fi
 
 # Notarize if package/upload requested
