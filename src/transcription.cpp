@@ -197,6 +197,7 @@ char *transcription_process(const float *audio_data, int n_samples, int sample_r
 
 	if (whisper_result != 0) {
 		log_error("ERROR: Failed to run whisper transcription\n");
+		utils_mutex_unlock(ctx_mutex);
 		return NULL;
 	}
 
@@ -208,6 +209,7 @@ char *transcription_process(const float *audio_data, int n_samples, int sample_r
 		if (empty_result) {
 			empty_result[0] = '\0';
 		}
+		utils_mutex_unlock(ctx_mutex);
 		return empty_result;
 	}
 
@@ -225,6 +227,7 @@ char *transcription_process(const float *audio_data, int n_samples, int sample_r
 	char *result = (char *) malloc(total_len + 2);// +1 for null terminator, +1 for trailing space
 	if (!result) {
 		log_error("ERROR: Failed to allocate memory for transcription\n");
+		utils_mutex_unlock(ctx_mutex);
 		return NULL;
 	}
 
